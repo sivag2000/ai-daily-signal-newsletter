@@ -1,0 +1,21 @@
+# Secrets and configurations
+config.json
+google_credentials.json
+
+# Python virtual environment
+venv/
+.venv/
+env/
+
+# Python caching
+__pycache__/
+*.pyc
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Output backups & logs
+AI_Updates_*.txt
+AI_Newsletter_*.md
+*.log
