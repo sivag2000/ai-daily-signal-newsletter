@@ -240,6 +240,26 @@ def scrape_google_blog(headers):  # Define a function to scrape AI posts from Go
         print(f"Error scraping Google Blog: {e}")  # Print the error description.
     return articles[:10]  # Return the top 10 Google Blog articles.
 #
+def scrape_hacker_news(headers):  # Define a function to scrape top stories from Hacker News.
+    url = "https://news.ycombinator.com/"  # Set the target Hacker News home URL.
+    articles = []  # Initialize an empty list to store matching articles.
+    try:  # Start a try block to handle network and scraping errors.
+        response = requests.get(url, headers=headers, timeout=10)  # Fetch Hacker News HTML content.
+        if response.status_code == 200:  # Check if the webpage request succeeded.
+            soup = BeautifulSoup(response.content, 'html.parser')  # Parse the HTML code.
+            for span in soup.find_all('span', class_='titleline'):  # Loop through all story titles on the page.
+                link = span.find('a')  # Find the primary link tag inside the span.
+                if link:  # If a link tag is found.
+                    title = link.get_text(strip=True)  # Retrieve the article title text.
+                    href = link['href']  # Extract the destination URL.
+                    full_url = href if href.startswith('http') else f"https://news.ycombinator.com/{href}"  # Build absolute URL.
+                    articles.append({"title": title, "link": full_url, "source": "Hacker News", "author": "Hacker News User"})  # Save details.
+        else:  # If the server returned an error.
+            print(f"Hacker News responded with status code: {response.status_code}")  # Log the status code.
+    except Exception as e:  # Catch any exception.
+        print(f"Error scraping Hacker News: {e}")  # Print the error details.
+    return articles[:10]  # Return the top 10 stories found.
+#
 def fetch_youtube_videos(api_key):  # Define a function to fetch videos using the YouTube Data API.
     videos = []  # Initialize an empty list to store video search results.
     env_key = os.environ.get("YOUTUBE_API_KEY")  # Check if YOUTUBE_API_KEY is set in environment variables.
@@ -359,6 +379,7 @@ def send_summary_email(config, articles, videos, llm_newsletter=None):  # Define
   .badge-tc {{ background-color: #e8f5e9; color: #2e7d32; }}
   .badge-oa {{ background-color: #eceff1; color: #37474f; }}
   .badge-gb {{ background-color: #e3f2fd; color: #1565c0; }}
+  .badge-hn {{ background-color: #ffebd6; color: #d84b00; }}
   .badge-yt {{ background-color: #ffebee; color: #c62828; }}
   .footer {{ background-color: #f1f3f5; color: #666666; text-align: center; padding: 15px; font-size: 12px; border-top: 1px solid #e9ecef; }}
 </style>
@@ -376,8 +397,14 @@ def send_summary_email(config, articles, videos, llm_newsletter=None):  # Define
             html += "<p>No new articles collected today.</p>"  # Add empty notification.
         else:  # If we have articles.
             for art in articles:  # Loop through all articles.
-                badge_class = "badge-tc" if art["source"] == "TechCrunch" else ("badge-oa" if art["source"] == "OpenAI" else "badge-gb")  # Determine css badge class.
-                badge_code = "TC" if art["source"] == "TechCrunch" else ("OA" if art["source"] == "OpenAI" else "Google")  # Determine badge display text.
+                if art["source"] == "TechCrunch":  # If article is from TechCrunch.
+                    badge_class, badge_code = "badge-tc", "TC"  # Set TC styles.
+                elif art["source"] == "OpenAI":  # If article is from OpenAI.
+                    badge_class, badge_code = "badge-oa", "OA"  # Set OA styles.
+                elif art["source"] == "Google Blog":  # If article is from Google Blog.
+                    badge_class, badge_code = "badge-gb", "Google"  # Set Google styles.
+                else:  # Else if article is from Hacker News.
+                    badge_class, badge_code = "badge-hn", "HN"  # Set HN styles.
                 html += f"""
     <div class="item">
       <p class="item-title"><a href="{art['link']}">{art['title']}</a></p>
@@ -479,7 +506,8 @@ def job():  # Define the main job wrapper that combines all tasks.
     tc_articles = scrape_techcrunch(headers)  # Fetch recent articles from TechCrunch.
     oa_articles = scrape_openai(headers)  # Fetch recent news items from OpenAI.
     gb_articles = scrape_google_blog(headers)  # Fetch recent posts from Google Blog.
-    all_articles = tc_articles + oa_articles + gb_articles  # Combine all articles from the three websites.
+    hn_articles = scrape_hacker_news(headers)  # Fetch recent stories from Hacker News.
+    all_articles = tc_articles + oa_articles + gb_articles + hn_articles  # Combine all articles from the websites.
     print("Fetching article summaries...")  # Log summary fetch start.
     for art in all_articles:  # Loop through all articles.
         art["summary"] = fetch_summary(art["link"], headers)  # Fetch and save the summary.
