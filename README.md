@@ -139,6 +139,26 @@ You can run the script in two modes:
   ```
   *(Keep the terminal window open for the scheduler to continue running daily).*
 
+
+---
+
+## Step 5: Run in the Cloud for Free (Optional - GitHub Actions)
+
+If you do not want to keep your laptop turned on and awake 24/7, you can host the scheduler completely for free in the cloud using **GitHub Actions**:
+
+1. **Upload your project to GitHub**: Create a repository on GitHub and push your code files (your secrets in `config.json` and `google_credentials.json` are automatically hidden and ignored via `.gitignore` to keep them safe).
+2. **Add GitHub Secrets**:
+   * Open your GitHub repository in your web browser.
+   * Go to **Settings** -> **Secrets and variables** -> **Actions**.
+   * Click the **New repository secret** button.
+   * Create a secret named **`CONFIG_JSON`** and paste the entire contents of your local `config.json` file as the value.
+   * Click **New repository secret** again.
+   * Create a secret named **`GOOGLE_CREDENTIALS_JSON`** and paste the entire contents of your local `google_credentials.json` file as the value.
+3. **Enjoy Automatic Runs**:
+   * The included `.github/workflows/daily_newsletter.yml` workflow file will automatically recreate the config files in the cloud using your secrets.
+   * It will run the news collection every day at **6:00 PM IST (12:30 PM UTC)** completely in the cloud.
+   * You can also trigger it manually at any time by going to the **Actions** tab on your GitHub repository, clicking **Daily AI News Scheduler** on the left, and clicking the **Run workflow** button.
+
 ---
 
 ## Troubleshooting Common Errors
