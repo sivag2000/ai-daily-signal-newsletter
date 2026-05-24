@@ -1,0 +1,40 @@
+# GitHub Actions workflow to run the Daily AI News Scheduler in the cloud.
+name: Daily AI News Scheduler
+
+on:
+  schedule:
+    # Runs daily at 12:30 UTC (6:00 PM IST). You can adjust this time as needed.
+    - cron: '30 12 * * *'
+  # Allows you to manually trigger the workflow from the Actions tab on GitHub.
+  workflow_dispatch:
+
+jobs:
+  run-scheduler:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout the repository code
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # Step 2: Set up Python environment
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      # Step 3: Install all required Python packages
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Step 4: Recreate config.json and google_credentials.json from GitHub Secrets
+      - name: Create Config and Credentials files
+        run: |
+          echo '${{ secrets.CONFIG_JSON }}' > config.json
+          echo '${{ secrets.GOOGLE_CREDENTIALS_JSON }}' > google_credentials.json
+
+      # Step 5: Run the scheduler immediately and exit
+      - name: Run News Scheduler
+        run: python scheduler.py --now
