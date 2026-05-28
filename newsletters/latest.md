@@ -1,0 +1,58 @@
+# 🤖 Daily AI News Briefing
+**Date:** May 23, 2026  
+**Curated by:** Daily AI News Scheduler  
+
+---
+
+## ⚡ Executive Summary
+Welcome to today's edition of the Daily AI News Briefing. Today’s major themes revolve around:
+* **Agentic Workflows**: Google's massive push towards agentic behaviors in Gemini.
+* **Corporate & Academic Alliances**: OpenAI partnering with Dell to bring Codex to local servers, and AI models solving long-standing geometry problems.
+* **Real-World Impact**: TechCrunch reports on using AI to resurrect voices of deceased pilots, and hands-on reviews of Google's new AI glasses.
+
+---
+
+## 📰 Top Stories from Industry Publishers
+
+### 🌐 TechCrunch | Innovation & Regulation
+* **[AI is being used to resurrect the voices of dead pilots](https://techcrunch.com/2026/05/22/ai-is-being-used-to-resurrect-the-voices-of-dead-pilots/)**
+  * *Theme:* Ethics and synthetic media. AI voice cloning is entering sensitive areas of bereavement and memorialization.
+* **[Trump delays AI security executive order, saying language ‘could have been a blocker’](https://techcrunch.com/2026/05/21/trump-delays-ai-security-executive-order-i-dont-want-to-get-in-the-way-of-that-leading/)**
+  * *Theme:* Policy. Regulatory frameworks delay to prioritize corporate acceleration in AI leadership.
+* **[We tried Google’s AI glasses and they’re almost there](https://techcrunch.com/2026/05/22/we-tried-googles-ai-glasses-and-theyre-almost-there/)**
+  * *Theme:* Consumer hardware. Hands-on look at Google's wearable AI experiments.
+* **[How VCs and founders use inflated ‘ARR’ to crown AI startups](https://techcrunch.com/2026/05/22/how-vcs-and-founders-use-inflated-arr-to-kingmake-ai-startups/)**
+  * *Theme:* Finance & Venture Capital. Market valuations and the accounting trickery behind artificial intelligence startups.
+
+---
+
+### ✨ OpenAI | Product Updates & Research Milestones
+* **[OpenAI named a Leader in enterprise coding agents by Gartner](https://openai.com/index/gartner-2026-agentic-coding-leader/)**
+  * *Theme:* Enterprise AI. Gartner recognizes OpenAI's push into developer and workflow automation tools.
+* **[An OpenAI model has disproved a central conjecture in discrete geometry](https://openai.com/index/model-disproves-discrete-geometry-conjecture/)**
+  * *Theme:* Science & Math. A powerful demonstration of LLMs contributing directly to mathematics research.
+* **[OpenAI and Dell Technologies partner to bring Codex to hybrid environments](https://openai.com/index/dell-codex-enterprise-partnership/)**
+  * *Theme:* Enterprise Hardware. Dell and OpenAI partner to deploy coding intelligence models on-premises.
+* **[A new personal finance experience in ChatGPT](https://openai.com/index/personal-finance-chatgpt/)**
+  * *Theme:* Consumer Software. New integrations allowing user financial tracking and planning.
+
+---
+
+### 🎨 Google Blog | The Gemini Era
+* **[I/O 2026: Welcome to the agentic Gemini era](https://blog.google/innovation-and-ai/sundar-pichai-io-2026/)**
+  * *Theme:* Keynote. Sundar Pichai details the shift from passive query-response AI to proactive daily agentic helpers.
+* **[The Gemini app becomes more agentic, delivering proactive, 24/7 help](https://blog.google/innovation-and-ai/products/gemini-app/next-evolution-gemini-app/)**
+  * *Theme:* Product. Introducing persistent assistants running behind the scenes.
+* **[Introducing Managed Agents in the Gemini API](https://blog.google/innovation-and-ai/technology/developers-tools/managed-agents-gemini-api/)**
+  * *Theme:* API & Developers. New endpoints enabling developers to run hosted, long-running agent workflows.
+* **[Gemini for Science: AI experiments and tools for discovery](https://blog.google/innovation-and-ai/technology/research/gemini-for-science-io-2026/)**
+  * *Theme:* Research. Google's tool suite tailored for scientific computation.
+
+---
+
+## 🎥 YouTube AI Videos
+*(No trending videos searched in this test run. Configure your `youtube_api_key` in `config.json` to enable automated video summaries).*
+
+---
+
+*This newsletter was automatically generated and formatted by your Daily AI News Scheduler.*

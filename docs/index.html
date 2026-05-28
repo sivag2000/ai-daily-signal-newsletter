@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Daily Signal</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f7f9fc;
+      color: #333;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: linear-gradient(135deg, #1e3c72, #2a5298);
+      color: #fff;
+      padding: 18px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    header h1 { font-size: 20px; font-weight: 700; letter-spacing: 0.4px; }
+    header p  { font-size: 12px; opacity: 0.8; margin-top: 2px; }
+    .header-right { font-size: 12px; opacity: 0.7; text-align: right; }
+
+    /* ── Layout ── */
+    .layout {
+      display: flex;
+      max-width: 1180px;
+      margin: 28px auto;
+      gap: 22px;
+      padding: 0 20px;
+      align-items: flex-start;
+    }
+
+    /* ── Sidebar ── */
+    aside {
+      width: 230px;
+      flex-shrink: 0;
+      position: sticky;
+      top: 80px;
+    }
+    aside h2 {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: #999;
+      margin-bottom: 10px;
+    }
+    .edition-list { list-style: none; }
+    .edition-list li { margin-bottom: 3px; }
+    .edition-list a {
+      display: block;
+      padding: 9px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      color: #444;
+      text-decoration: none;
+      transition: background 0.15s, color 0.15s;
+      line-height: 1.4;
+    }
+    .edition-list a:hover { background: #e4eaf5; }
+    .edition-list a.active { background: #1e3c72; color: #fff; font-weight: 600; }
+    .edition-list a .date { display: block; font-size: 11px; opacity: 0.6; margin-top: 2px; }
+    .edition-list a.active .date { opacity: 0.75; }
+
+    /* ── Main card ── */
+    main { flex: 1; min-width: 0; }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 44px 48px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+    }
+
+    /* ── Newsletter typography ── */
+    .card h1 { font-size: 26px; color: #1e3c72; margin-bottom: 6px; line-height: 1.3; }
+    .card h2 { font-size: 19px; color: #1e3c72; border-bottom: 2px solid #eef2f7; padding-bottom: 7px; margin: 28px 0 13px; }
+    .card h3 { font-size: 15px; color: #2a5298; margin: 20px 0 8px; }
+    .card p  { line-height: 1.75; margin-bottom: 13px; }
+    .card ul, .card ol { padding-left: 22px; margin-bottom: 13px; }
+    .card li { line-height: 1.75; margin-bottom: 5px; }
+    .card strong { color: #1a2f5a; }
+    .card em { color: #555; }
+    .card a  { color: #2a5298; text-decoration: none; }
+    .card a:hover { text-decoration: underline; }
+    .card hr { border: none; border-top: 1px solid #eef2f7; margin: 22px 0; }
+    .card blockquote {
+      border-left: 3px solid #2a5298;
+      padding: 8px 16px;
+      color: #555;
+      font-style: italic;
+      margin: 14px 0;
+      background: #f4f7fb;
+      border-radius: 0 6px 6px 0;
+    }
+    .card code {
+      background: #f4f7fb;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 13px;
+      color: #c62828;
+    }
+    .card pre {
+      background: #f4f7fb;
+      padding: 14px;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin-bottom: 13px;
+    }
+    .card pre code { background: none; padding: 0; color: #333; }
+
+    /* ── States ── */
+    #loading, #error {
+      text-align: center;
+      padding: 70px 20px;
+      font-size: 15px;
+      color: #aaa;
+    }
+    #error { color: #c62828; display: none; }
+
+    .spinner {
+      width: 32px; height: 32px;
+      border: 3px solid #e0e7f0;
+      border-top-color: #2a5298;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Responsive ── */
+    @media (max-width: 720px) {
+      .layout { flex-direction: column; }
+      aside { width: 100%; position: static; }
+      .card { padding: 24px 20px; }
+      .header-right { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>AI Daily Signal</h1>
+    <p>Your automated daily digest of AI news and updates</p>
+  </div>
+  <div class="header-right">Auto-updated every day at 6:00 PM IST</div>
+</header>
+
+<div class="layout">
+  <aside>
+    <h2>Past Editions</h2>
+    <ul class="edition-list" id="editionList">
+      <li><a href="#" style="color:#ccc; pointer-events:none;">Loading…</a></li>
+    </ul>
+  </aside>
+
+  <main>
+    <div class="card">
+      <div id="loading">
+        <div class="spinner"></div>
+        Loading latest newsletter…
+      </div>
+      <div id="error">Failed to load newsletter. Please try again later.</div>
+      <div id="content" style="display:none;"></div>
+    </div>
+  </main>
+</div>
+
+<script>
+  const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  const RAW_BASE = isLocal
+    ? '/'
+    : 'https://raw.githubusercontent.com/sivag2000/ai-daily-signal-newsletter/main/';
+
+  function formatDate(dateStr) {
+    const d = new Date(dateStr + 'T12:00:00');
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  function renderSidebar(index) {
+    const list = document.getElementById('editionList');
+    if (!index.length) {
+      list.innerHTML = '<li><a href="#" style="color:#ccc; pointer-events:none;">No editions yet</a></li>';
+      return;
+    }
+    list.innerHTML = index.map(item => `
+      <li>
+        <a href="#" data-file="${item.file}" onclick="selectEdition(event,'${item.file}')">
+          ${item.title}
+          <span class="date">${formatDate(item.date)}</span>
+        </a>
+      </li>
+    `).join('');
+  }
+
+  function setActive(file) {
+    document.querySelectorAll('.edition-list a').forEach(a => {
+      a.classList.toggle('active', a.dataset.file === file);
+    });
+  }
+
+  async function loadNewsletter(file) {
+    document.getElementById('content').style.display = 'none';
+    document.getElementById('loading').style.display = 'block';
+    document.getElementById('error').style.display = 'none';
+    try {
+      const resp = await fetch(RAW_BASE + file, { cache: 'no-store' });
+      if (!resp.ok) throw new Error('not found');
+      const md = await resp.text();
+      document.getElementById('content').innerHTML = marked.parse(md);
+      document.getElementById('content').style.display = 'block';
+      document.getElementById('loading').style.display = 'none';
+      setActive(file);
+    } catch {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('error').style.display = 'block';
+    }
+  }
+
+  function selectEdition(e, file) {
+    e.preventDefault();
+    loadNewsletter(file);
+  }
+
+  async function init() {
+    try {
+      const resp = await fetch(RAW_BASE + 'newsletters/index.json', { cache: 'no-store' });
+      if (!resp.ok) throw new Error('no index');
+      const index = await resp.json();
+      renderSidebar(index);
+      if (index.length) {
+        loadNewsletter(index[0].file);
+      } else {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('error').style.display = 'block';
+      }
+    } catch {
+      // Fallback: try latest.md directly
+      renderSidebar([]);
+      loadNewsletter('newsletters/latest.md');
+    }
+  }
+
+  init();
+</script>
+</body>
+</html>

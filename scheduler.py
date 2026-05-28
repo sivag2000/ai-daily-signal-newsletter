@@ -499,6 +499,34 @@ def save_backup(config, articles, videos, llm_newsletter=None):  # Define a func
     except Exception as e:  # Catch write permission or file access errors.
         print(f"Error saving backup file: {e}")  # Print the error details.
 #
+def save_newsletter_to_repo(llm_newsletter):  # Save newsletter to newsletters/ dir and update index.json for the website.
+    script_dir = os.path.dirname(os.path.abspath(__file__))  # Get the directory containing the script.
+    newsletters_dir = os.path.join(script_dir, "newsletters")  # Build path to newsletters folder.
+    os.makedirs(newsletters_dir, exist_ok=True)  # Create the directory if it does not yet exist.
+    today = datetime.date.today()  # Get today's date object.
+    today_str = today.strftime("%Y-%m-%d")  # Format as YYYY-MM-DD for filenames and JSON keys.
+    today_display = today.strftime("%B %d, %Y")  # Format as human-readable string for titles.
+    content = llm_newsletter if llm_newsletter else f"# AI Daily Signal — {today_display}\n\nNo newsletter generated today."  # Use LLM output or fallback.
+    dated_path = os.path.join(newsletters_dir, f"{today_str}.md")  # Path for the dated newsletter file.
+    latest_path = os.path.join(newsletters_dir, "latest.md")  # Path for the always-current latest file.
+    with open(dated_path, "w", encoding="utf-8") as f:  # Write the dated newsletter file.
+        f.write(content)  # Save full content.
+    with open(latest_path, "w", encoding="utf-8") as f:  # Overwrite latest.md with today's content.
+        f.write(content)  # Save full content.
+    index_path = os.path.join(newsletters_dir, "index.json")  # Path for the edition index file.
+    index = []  # Start with an empty list.
+    if os.path.exists(index_path):  # If an existing index file is found.
+        try:  # Attempt to load it.
+            with open(index_path, "r", encoding="utf-8") as f:  # Open for reading.
+                index = json.load(f)  # Parse JSON into a list.
+        except Exception:  # If parsing fails for any reason.
+            index = []  # Reset to empty list.
+    index = [e for e in index if e.get("date") != today_str]  # Remove any existing entry for today.
+    index.insert(0, {"date": today_str, "title": f"AI Daily Signal — {today_display}", "file": f"newsletters/{today_str}.md"})  # Prepend today's entry.
+    with open(index_path, "w", encoding="utf-8") as f:  # Write updated index file.
+        json.dump(index, f, indent=2)  # Save as formatted JSON.
+    print(f"Newsletter saved to repo: newsletters/{today_str}.md")  # Log success.
+#
 def job():  # Define the main job wrapper that combines all tasks.
     print(f"\n--- Starting AI News Collection Job at {datetime.datetime.now()} ---")  # Log startup timestamp.
     config = load_config()  # Load configuration values.
@@ -525,6 +553,7 @@ def job():  # Define the main job wrapper that combines all tasks.
     save_to_google_sheets(config, all_data)  # Append data to the Google sheet.
     send_summary_email(config, all_articles, youtube_videos, llm_newsletter)  # Deliver digest email.
     save_backup(config, all_articles, youtube_videos, llm_newsletter)  # Write updates backup file.
+    save_newsletter_to_repo(llm_newsletter)  # Save newsletter to newsletters/ directory for the website.
     print(f"--- Job Completed at {datetime.datetime.now()} ---\n")  # Log successful finish timestamp.
 #
 if __name__ == "__main__":  # Executed if the file is run directly.

@@ -45,3 +45,12 @@ jobs:
       # Step 5: Run the scheduler immediately and exit
       - name: Run News Scheduler
         run: python scheduler.py --now
+
+      # Step 6: Commit and push the generated newsletter files back to the repo
+      - name: Commit and Push Newsletter
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add newsletters/
+          git diff --staged --quiet || git commit -m "newsletter: add edition for $(date +%Y-%m-%d)"
+          git push
