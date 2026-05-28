@@ -119,18 +119,24 @@ QUALITY CHECKLIST (review before finalizing)
             }]  # End parts list.
         }]  # End contents list.
     }  # End payload dictionary.
-    try:  # Start a try block for HTTP request.
-        response = requests.post(url, headers=headers, json=data, timeout=60)  # Send content request to Gemini API.
-        if response.status_code == 200:  # If response is successful.
-            result = response.json()  # Parse response as JSON.
-            candidates = result.get('candidates', [])  # Retrieve candidate generations.
-            if candidates:  # If candidates exist.
-                return candidates[0]['content']['parts'][0]['text']  # Extract and return generated text output.
-        else:  # If API request fails.
-            print(f"Gemini API returned status code {response.status_code}: {response.text}")  # Log error response.
-    except Exception as e:  # Catch network errors.
-        print(f"Error calling Gemini API: {e}")  # Log error message.
-    return None  # Return None on failure.
+    for attempt in range(1, 4):  # Retry up to 3 times to handle temporary 503/429 errors.
+        try:  # Start a try block for HTTP request.
+            response = requests.post(url, headers=headers, json=data, timeout=60)  # Send content request to Gemini API.
+            if response.status_code == 200:  # If response is successful.
+                result = response.json()  # Parse response as JSON.
+                candidates = result.get('candidates', [])  # Retrieve candidate generations.
+                if candidates:  # If candidates exist.
+                    return candidates[0]['content']['parts'][0]['text']  # Extract and return generated text output.
+            elif response.status_code in (429, 503):  # If rate-limited or service unavailable.
+                print(f"Gemini API attempt {attempt} returned {response.status_code}. Retrying in {attempt * 10}s...")  # Log retry.
+                time.sleep(attempt * 10)  # Wait before retrying (10s, 20s, 30s).
+            else:  # If API request fails with other error.
+                print(f"Gemini API returned status code {response.status_code}: {response.text}")  # Log error response.
+                break  # Do not retry on non-retriable errors.
+        except Exception as e:  # Catch network errors.
+            print(f"Error calling Gemini API (attempt {attempt}): {e}")  # Log error message.
+            time.sleep(attempt * 10)  # Wait before retrying.
+    return None  # Return None after all retries exhausted.
 #
 def convert_markdown_to_html(md_text):  # Define a helper function to convert basic markdown into clean HTML.
     lines = md_text.split("\n")  # Split input text into lines.
@@ -270,75 +276,70 @@ def scrape_hacker_news(headers):  # Define a function to scrape AI-related stori
     print(f"Hacker News: found {len(articles[:10])} AI-related stories.")  # Log how many matched.
     return articles[:10]  # Return up to 10 AI-related stories.
 #
-def scrape_the_verge(headers):  # Define a function to scrape AI articles from The Verge.
-    url = "https://www.theverge.com/ai-artificial-intelligence"  # Set The Verge AI section URL.
+def scrape_the_verge(headers):  # Define a function to fetch AI articles from The Verge via RSS.
+    url = "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml"  # Use The Verge AI RSS feed (avoids JS rendering issues).
     articles = []  # Initialize empty list.
     try:  # Start error handling block.
-        response = requests.get(url, headers=headers, timeout=10)  # Fetch the page.
+        response = requests.get(url, headers=headers, timeout=10)  # Fetch the RSS feed.
         if response.status_code == 200:  # If successful.
-            soup = BeautifulSoup(response.content, 'html.parser')  # Parse HTML.
-            for link in soup.find_all('a', href=True):  # Loop through all links.
-                href = link['href']  # Get link URL.
-                header = link.find(['h2', 'h3'])  # Look for article title inside link.
-                if header:  # If a heading is found.
-                    title = header.get_text(strip=True)  # Extract title text.
-                    if title and len(title) > 10:  # Filter out short/empty titles.
-                        full_url = href if href.startswith('http') else f"https://www.theverge.com{href}"  # Build absolute URL.
-                        articles.append({"title": title, "link": full_url, "source": "The Verge", "author": "The Verge"})  # Save article.
+            soup = BeautifulSoup(response.content, 'xml')  # Parse as XML.
+            for item in soup.find_all('item'):  # Loop through each RSS item.
+                title_tag = item.find('title')  # Find title tag.
+                link_tag = item.find('link')  # Find link tag.
+                if title_tag and link_tag:  # If both are present.
+                    title = title_tag.get_text(strip=True)  # Extract title text.
+                    link = link_tag.get_text(strip=True)  # Extract link URL.
+                    if title and len(title) > 10 and link:  # Filter short/empty entries.
+                        articles.append({"title": title, "link": link, "source": "The Verge", "author": "The Verge"})  # Save article.
         else:  # If request failed.
-            print(f"The Verge responded with status code: {response.status_code}")  # Log error.
+            print(f"The Verge RSS responded with status code: {response.status_code}")  # Log error.
     except Exception as e:  # Catch errors.
-        print(f"Error scraping The Verge: {e}")  # Log error message.
+        print(f"Error fetching The Verge RSS: {e}")  # Log error message.
     print(f"The Verge: found {len(articles[:8])} articles.")  # Log count.
     return articles[:8]  # Return top 8 articles.
 #
-def scrape_mit_tech_review(headers):  # Define a function to scrape AI articles from MIT Technology Review.
-    url = "https://www.technologyreview.com/topic/artificial-intelligence/"  # Set MIT Tech Review AI topic URL.
+def scrape_mit_tech_review(headers):  # Define a function to fetch AI articles from MIT Technology Review via RSS.
+    url = "https://www.technologyreview.com/feed/"  # Use MIT Tech Review RSS feed for reliable access.
+    ai_keywords = ["ai", "artificial intelligence", "machine learning", "llm", "gpt", "neural", "model", "robot", "autonomous", "deep learning"]  # AI filter keywords.
     articles = []  # Initialize empty list.
     try:  # Start error handling block.
-        response = requests.get(url, headers=headers, timeout=10)  # Fetch the page.
+        response = requests.get(url, headers=headers, timeout=10)  # Fetch the RSS feed.
         if response.status_code == 200:  # If successful.
-            soup = BeautifulSoup(response.content, 'html.parser')  # Parse HTML.
-            for link in soup.find_all('a', href=True):  # Loop through all links.
-                href = link['href']  # Get link URL.
-                header = link.find(['h2', 'h3'])  # Look for article heading inside link.
-                if not header:  # If no heading inside the link.
-                    parent = link.find_parent(['article', 'div'])  # Check parent container.
-                    if parent:  # If parent exists.
-                        header = parent.find(['h2', 'h3'])  # Look for heading inside parent.
-                if header:  # If heading found.
-                    title = header.get_text(strip=True)  # Extract title text.
-                    if title and len(title) > 10 and href:  # Filter short/empty titles.
-                        full_url = href if href.startswith('http') else f"https://www.technologyreview.com{href}"  # Build absolute URL.
-                        if 'technologyreview.com' in full_url and full_url not in [a['link'] for a in articles]:  # Avoid duplicates.
-                            articles.append({"title": title, "link": full_url, "source": "MIT Tech Review", "author": "MIT Technology Review"})  # Save article.
+            soup = BeautifulSoup(response.content, 'xml')  # Parse as XML.
+            for item in soup.find_all('item'):  # Loop through each RSS item.
+                title_tag = item.find('title')  # Find title tag.
+                link_tag = item.find('link')  # Find link tag.
+                if title_tag and link_tag:  # If both are present.
+                    title = title_tag.get_text(strip=True)  # Extract title text.
+                    link = link_tag.get_text(strip=True)  # Extract link URL.
+                    if title and len(title) > 10 and any(kw in title.lower() for kw in ai_keywords):  # Filter to AI articles only.
+                        articles.append({"title": title, "link": link, "source": "MIT Tech Review", "author": "MIT Technology Review"})  # Save article.
         else:  # If request failed.
-            print(f"MIT Tech Review responded with status code: {response.status_code}")  # Log error.
+            print(f"MIT Tech Review RSS responded with status code: {response.status_code}")  # Log error.
     except Exception as e:  # Catch errors.
-        print(f"Error scraping MIT Tech Review: {e}")  # Log error message.
+        print(f"Error fetching MIT Tech Review RSS: {e}")  # Log error message.
     print(f"MIT Tech Review: found {len(articles[:8])} articles.")  # Log count.
     return articles[:8]  # Return top 8 articles.
 #
-def scrape_venturebeat(headers):  # Define a function to scrape AI articles from VentureBeat.
-    url = "https://venturebeat.com/category/ai/"  # Set VentureBeat AI category URL.
+def scrape_venturebeat(headers):  # Define a function to fetch AI articles from VentureBeat via RSS.
+    url = "https://venturebeat.com/category/ai/feed/"  # Use VentureBeat AI RSS feed (avoids 429 rate limiting on HTML pages).
     articles = []  # Initialize empty list.
     try:  # Start error handling block.
-        response = requests.get(url, headers=headers, timeout=10)  # Fetch the page.
+        response = requests.get(url, headers=headers, timeout=10)  # Fetch the RSS feed.
         if response.status_code == 200:  # If successful.
-            soup = BeautifulSoup(response.content, 'html.parser')  # Parse HTML.
-            for link in soup.find_all('a', href=True):  # Loop through all links.
-                href = link['href']  # Get link URL.
-                header = link.find(['h2', 'h3'])  # Look for heading inside link.
-                if header:  # If heading found.
-                    title = header.get_text(strip=True)  # Extract title text.
-                    if title and len(title) > 10:  # Filter short/empty titles.
-                        full_url = href if href.startswith('http') else f"https://venturebeat.com{href}"  # Build absolute URL.
-                        if 'venturebeat.com' in full_url and '/category/' not in full_url:  # Skip category pages.
-                            articles.append({"title": title, "link": full_url, "source": "VentureBeat", "author": "VentureBeat"})  # Save article.
+            soup = BeautifulSoup(response.content, 'xml')  # Parse as XML.
+            for item in soup.find_all('item'):  # Loop through each RSS item.
+                title_tag = item.find('title')  # Find title tag.
+                link_tag = item.find('link')  # Find link tag.
+                if title_tag and link_tag:  # If both are present.
+                    title = title_tag.get_text(strip=True)  # Extract title text.
+                    link = link_tag.get_text(strip=True)  # Extract link URL.
+                    if title and len(title) > 10 and link:  # Filter short/empty entries.
+                        articles.append({"title": title, "link": link, "source": "VentureBeat", "author": "VentureBeat"})  # Save article.
         else:  # If request failed.
-            print(f"VentureBeat responded with status code: {response.status_code}")  # Log error.
+            print(f"VentureBeat RSS responded with status code: {response.status_code}")  # Log error.
     except Exception as e:  # Catch errors.
-        print(f"Error scraping VentureBeat: {e}")  # Log error message.
+        print(f"Error fetching VentureBeat RSS: {e}")  # Log error message.
     print(f"VentureBeat: found {len(articles[:8])} articles.")  # Log count.
     return articles[:8]  # Return top 8 articles.
 #
