@@ -270,6 +270,101 @@ def scrape_hacker_news(headers):  # Define a function to scrape AI-related stori
     print(f"Hacker News: found {len(articles[:10])} AI-related stories.")  # Log how many matched.
     return articles[:10]  # Return up to 10 AI-related stories.
 #
+def scrape_the_verge(headers):  # Define a function to scrape AI articles from The Verge.
+    url = "https://www.theverge.com/ai-artificial-intelligence"  # Set The Verge AI section URL.
+    articles = []  # Initialize empty list.
+    try:  # Start error handling block.
+        response = requests.get(url, headers=headers, timeout=10)  # Fetch the page.
+        if response.status_code == 200:  # If successful.
+            soup = BeautifulSoup(response.content, 'html.parser')  # Parse HTML.
+            for link in soup.find_all('a', href=True):  # Loop through all links.
+                href = link['href']  # Get link URL.
+                header = link.find(['h2', 'h3'])  # Look for article title inside link.
+                if header:  # If a heading is found.
+                    title = header.get_text(strip=True)  # Extract title text.
+                    if title and len(title) > 10:  # Filter out short/empty titles.
+                        full_url = href if href.startswith('http') else f"https://www.theverge.com{href}"  # Build absolute URL.
+                        articles.append({"title": title, "link": full_url, "source": "The Verge", "author": "The Verge"})  # Save article.
+        else:  # If request failed.
+            print(f"The Verge responded with status code: {response.status_code}")  # Log error.
+    except Exception as e:  # Catch errors.
+        print(f"Error scraping The Verge: {e}")  # Log error message.
+    print(f"The Verge: found {len(articles[:8])} articles.")  # Log count.
+    return articles[:8]  # Return top 8 articles.
+#
+def scrape_mit_tech_review(headers):  # Define a function to scrape AI articles from MIT Technology Review.
+    url = "https://www.technologyreview.com/topic/artificial-intelligence/"  # Set MIT Tech Review AI topic URL.
+    articles = []  # Initialize empty list.
+    try:  # Start error handling block.
+        response = requests.get(url, headers=headers, timeout=10)  # Fetch the page.
+        if response.status_code == 200:  # If successful.
+            soup = BeautifulSoup(response.content, 'html.parser')  # Parse HTML.
+            for link in soup.find_all('a', href=True):  # Loop through all links.
+                href = link['href']  # Get link URL.
+                header = link.find(['h2', 'h3'])  # Look for article heading inside link.
+                if not header:  # If no heading inside the link.
+                    parent = link.find_parent(['article', 'div'])  # Check parent container.
+                    if parent:  # If parent exists.
+                        header = parent.find(['h2', 'h3'])  # Look for heading inside parent.
+                if header:  # If heading found.
+                    title = header.get_text(strip=True)  # Extract title text.
+                    if title and len(title) > 10 and href:  # Filter short/empty titles.
+                        full_url = href if href.startswith('http') else f"https://www.technologyreview.com{href}"  # Build absolute URL.
+                        if 'technologyreview.com' in full_url and full_url not in [a['link'] for a in articles]:  # Avoid duplicates.
+                            articles.append({"title": title, "link": full_url, "source": "MIT Tech Review", "author": "MIT Technology Review"})  # Save article.
+        else:  # If request failed.
+            print(f"MIT Tech Review responded with status code: {response.status_code}")  # Log error.
+    except Exception as e:  # Catch errors.
+        print(f"Error scraping MIT Tech Review: {e}")  # Log error message.
+    print(f"MIT Tech Review: found {len(articles[:8])} articles.")  # Log count.
+    return articles[:8]  # Return top 8 articles.
+#
+def scrape_venturebeat(headers):  # Define a function to scrape AI articles from VentureBeat.
+    url = "https://venturebeat.com/category/ai/"  # Set VentureBeat AI category URL.
+    articles = []  # Initialize empty list.
+    try:  # Start error handling block.
+        response = requests.get(url, headers=headers, timeout=10)  # Fetch the page.
+        if response.status_code == 200:  # If successful.
+            soup = BeautifulSoup(response.content, 'html.parser')  # Parse HTML.
+            for link in soup.find_all('a', href=True):  # Loop through all links.
+                href = link['href']  # Get link URL.
+                header = link.find(['h2', 'h3'])  # Look for heading inside link.
+                if header:  # If heading found.
+                    title = header.get_text(strip=True)  # Extract title text.
+                    if title and len(title) > 10:  # Filter short/empty titles.
+                        full_url = href if href.startswith('http') else f"https://venturebeat.com{href}"  # Build absolute URL.
+                        if 'venturebeat.com' in full_url and '/category/' not in full_url:  # Skip category pages.
+                            articles.append({"title": title, "link": full_url, "source": "VentureBeat", "author": "VentureBeat"})  # Save article.
+        else:  # If request failed.
+            print(f"VentureBeat responded with status code: {response.status_code}")  # Log error.
+    except Exception as e:  # Catch errors.
+        print(f"Error scraping VentureBeat: {e}")  # Log error message.
+    print(f"VentureBeat: found {len(articles[:8])} articles.")  # Log count.
+    return articles[:8]  # Return top 8 articles.
+#
+def scrape_wired(headers):  # Define a function to scrape AI articles from Wired.
+    url = "https://www.wired.com/tag/artificial-intelligence/"  # Set Wired AI tag page URL.
+    articles = []  # Initialize empty list.
+    try:  # Start error handling block.
+        response = requests.get(url, headers=headers, timeout=10)  # Fetch the page.
+        if response.status_code == 200:  # If successful.
+            soup = BeautifulSoup(response.content, 'html.parser')  # Parse HTML.
+            for link in soup.find_all('a', href=True):  # Loop through all links.
+                href = link['href']  # Get link URL.
+                header = link.find(['h2', 'h3'])  # Look for heading inside link.
+                if header:  # If heading found.
+                    title = header.get_text(strip=True)  # Extract title text.
+                    if title and len(title) > 10:  # Filter short/empty titles.
+                        full_url = href if href.startswith('http') else f"https://www.wired.com{href}"  # Build absolute URL.
+                        if 'wired.com' in full_url and '/tag/' not in full_url:  # Skip tag index pages.
+                            articles.append({"title": title, "link": full_url, "source": "Wired", "author": "Wired"})  # Save article.
+        else:  # If request failed.
+            print(f"Wired responded with status code: {response.status_code}")  # Log error.
+    except Exception as e:  # Catch errors.
+        print(f"Error scraping Wired: {e}")  # Log error message.
+    print(f"Wired: found {len(articles[:8])} articles.")  # Log count.
+    return articles[:8]  # Return top 8 articles.
+#
 def fetch_youtube_videos(api_key):  # Define a function to fetch videos using the YouTube Data API.
     videos = []  # Initialize an empty list to store video search results.
     env_key = os.environ.get("YOUTUBE_API_KEY")  # Check if YOUTUBE_API_KEY is set in environment variables.
@@ -549,8 +644,12 @@ def job():  # Define the main job wrapper that combines all tasks.
     tc_articles = scrape_techcrunch(headers)  # Fetch recent articles from TechCrunch.
     oa_articles = scrape_openai(headers)  # Fetch recent news items from OpenAI.
     gb_articles = scrape_google_blog(headers)  # Fetch recent posts from Google Blog.
-    hn_articles = scrape_hacker_news(headers)  # Fetch recent stories from Hacker News.
-    all_articles = tc_articles + oa_articles + gb_articles + hn_articles  # Combine all articles from the websites.
+    hn_articles = scrape_hacker_news(headers)  # Fetch recent AI stories from Hacker News.
+    vg_articles = scrape_the_verge(headers)  # Fetch recent AI articles from The Verge.
+    mt_articles = scrape_mit_tech_review(headers)  # Fetch recent AI articles from MIT Tech Review.
+    vb_articles = scrape_venturebeat(headers)  # Fetch recent AI articles from VentureBeat.
+    wd_articles = scrape_wired(headers)  # Fetch recent AI articles from Wired.
+    all_articles = tc_articles + oa_articles + gb_articles + hn_articles + vg_articles + mt_articles + vb_articles + wd_articles  # Combine all articles.
     print("Fetching article summaries...")  # Log summary fetch start.
     for art in all_articles:  # Loop through all articles.
         art["summary"] = fetch_summary(art["link"], headers)  # Fetch and save the summary.
