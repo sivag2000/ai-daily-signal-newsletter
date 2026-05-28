@@ -31,9 +31,16 @@ jobs:
 
       # Step 4: Recreate config.json and google_credentials.json from GitHub Secrets
       - name: Create Config and Credentials files
+        env:
+          CONFIG_JSON: ${{ secrets.CONFIG_JSON }}
+          GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
         run: |
-          echo '${{ secrets.CONFIG_JSON }}' > config.json
-          echo '${{ secrets.GOOGLE_CREDENTIALS_JSON }}' > google_credentials.json
+          if [ -n "$CONFIG_JSON" ]; then
+            printf '%s' "$CONFIG_JSON" > config.json
+          fi
+          if [ -n "$GOOGLE_CREDENTIALS_JSON" ]; then
+            printf '%s' "$GOOGLE_CREDENTIALS_JSON" > google_credentials.json
+          fi
 
       # Step 5: Run the scheduler immediately and exit
       - name: Run News Scheduler
