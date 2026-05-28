@@ -50,9 +50,6 @@ Welcome to today's edition of the Daily AI News Briefing. Today’s major themes
 
 ---
 
-## 🎥 YouTube AI Videos
-*(No trending videos searched in this test run. Configure your `youtube_api_key` in `config.json` to enable automated video summaries).*
-
 ---
 
 *This newsletter was automatically generated and formatted by your Daily AI News Scheduler.*
