@@ -1,0 +1,10 @@
+{
+  "youtube_api_key": "YOUR_YOUTUBE_API_KEY",
+  "gemini_api_key": "YOUR_GEMINI_API_KEY",
+  "gmail_sender": "your_email@gmail.com",
+  "gmail_app_password": "your_gmail_app_password",
+  "gmail_receiver": "recipient_email@gmail.com",
+  "google_sheet_name": "AI News Daily Tracker",
+  "google_credentials_file": "google_credentials.json",
+  "desktop_backup_dir": ""
+}

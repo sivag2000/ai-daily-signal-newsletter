@@ -44,6 +44,9 @@ jobs:
 
       # Step 5: Run the scheduler immediately and exit
       - name: Run News Scheduler
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python scheduler.py --now
 
       # Step 6: Commit and push the generated newsletter files back to the repo

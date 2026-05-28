@@ -1,5 +1,4 @@
 # Secrets and configurations
-config.json
 google_credentials.json
 
 # Python virtual environment
