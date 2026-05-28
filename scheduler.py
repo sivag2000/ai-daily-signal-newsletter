@@ -605,6 +605,52 @@ def save_backup(config, articles, videos, llm_newsletter=None):  # Define a func
     except Exception as e:  # Catch write permission or file access errors.
         print(f"Error saving backup file: {e}")  # Print the error details.
 #
+def send_telegram(config, llm_newsletter):  # Define a function to send the newsletter to Telegram.
+    bot_token = os.environ.get("TELEGRAM_BOT_TOKEN") or config.get("telegram_bot_token", "")  # Get bot token from env or config.
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID") or config.get("telegram_chat_id", "")  # Get chat ID from env or config.
+    if not bot_token or bot_token in ("", "YOUR_TELEGRAM_BOT_TOKEN"):  # Check if token is missing.
+        print("Warning: Telegram bot token not configured. Skipping Telegram delivery.")  # Log warning.
+        return  # Exit early.
+    if not chat_id or chat_id in ("", "YOUR_TELEGRAM_CHAT_ID"):  # Check if chat ID is missing.
+        print("Warning: Telegram chat ID not configured. Skipping Telegram delivery.")  # Log warning.
+        return  # Exit early.
+    today_display = datetime.date.today().strftime("%B %d, %Y")  # Format today's date.
+    website_url = "https://sivag2000.github.io/ai-daily-signal-newsletter/"  # Newsletter website URL.
+    def md_to_telegram_html(text):  # Inner helper to convert markdown to Telegram HTML.
+        import re  # Import regex for pattern matching.
+        text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)  # Convert **bold** to <b>.
+        text = re.sub(r'\*(.+?)\*', r'<i>\1</i>', text)  # Convert *italic* to <i>.
+        text = re.sub(r'\[(.+?)\]\((.+?)\)', r'<a href="\2">\1</a>', text)  # Convert [text](url) to <a>.
+        text = re.sub(r'^#{1,3} (.+)$', r'<b>\1</b>', text, flags=re.MULTILINE)  # Convert headings to bold.
+        text = re.sub(r'^---+$', '─────────────', text, flags=re.MULTILINE)  # Replace hr with line.
+        return text  # Return converted text.
+    if llm_newsletter:  # If LLM newsletter content is available.
+        converted = md_to_telegram_html(llm_newsletter)  # Convert markdown to Telegram HTML.
+        lines = converted.split('\n')  # Split into lines.
+        chunks = []  # Store message chunks.
+        current = f"🤖 <b>AI Daily Signal — {today_display}</b>\n\n"  # Start first chunk with header.
+        for line in lines:  # Loop through each line.
+            if len(current) + len(line) + 1 > 3800:  # If adding this line exceeds Telegram's limit.
+                chunks.append(current)  # Save current chunk.
+                current = line + '\n'  # Start new chunk.
+            else:  # Otherwise.
+                current += line + '\n'  # Append line to current chunk.
+        if current.strip():  # If remaining content exists.
+            chunks.append(current)  # Save last chunk.
+        chunks[-1] += f'\n\n📖 <a href="{website_url}">Read full edition on the website →</a>'  # Append website link to last chunk.
+    else:  # If no LLM content.
+        chunks = [f"🤖 <b>AI Daily Signal — {today_display}</b>\n\nNewsletter not available today.\n\n📖 <a href=\"{website_url}\">Visit the website →</a>"]  # Fallback message.
+    api_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"  # Set Telegram Bot API endpoint.
+    for i, chunk in enumerate(chunks):  # Loop through each message chunk.
+        try:  # Start error handling.
+            resp = requests.post(api_url, json={"chat_id": chat_id, "text": chunk, "parse_mode": "HTML", "disable_web_page_preview": i < len(chunks) - 1}, timeout=15)  # Send message.
+            if resp.status_code == 200:  # If successful.
+                print(f"Telegram chunk {i+1}/{len(chunks)} sent successfully.")  # Log success.
+            else:  # If failed.
+                print(f"Telegram API error on chunk {i+1}: {resp.status_code} — {resp.json().get('description', resp.text)}")  # Log error.
+        except Exception as e:  # Catch network errors.
+            print(f"Error sending Telegram message: {e}")  # Log error.
+#
 def save_newsletter_to_repo(llm_newsletter, hn_articles=None):  # Save newsletter to newsletters/ dir and update index.json for the website.
     script_dir = os.path.dirname(os.path.abspath(__file__))  # Get the directory containing the script.
     newsletters_dir = os.path.join(script_dir, "newsletters")  # Build path to newsletters folder.
@@ -669,6 +715,7 @@ def job():  # Define the main job wrapper that combines all tasks.
     send_summary_email(config, all_articles, youtube_videos, llm_newsletter)  # Deliver digest email.
     save_backup(config, all_articles, youtube_videos, llm_newsletter)  # Write updates backup file.
     save_newsletter_to_repo(llm_newsletter, hn_articles)  # Save newsletter to newsletters/ directory for the website.
+    send_telegram(config, llm_newsletter)  # Send the newsletter to Telegram.
     print(f"--- Job Completed at {datetime.datetime.now()} ---\n")  # Log successful finish timestamp.
 #
 if __name__ == "__main__":  # Executed if the file is run directly.
