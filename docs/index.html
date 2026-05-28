@@ -19,7 +19,7 @@
     header {
       background: linear-gradient(135deg, #1e3c72, #2a5298);
       color: #fff;
-      padding: 18px 32px;
+      padding: 12px 32px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -27,6 +27,15 @@
       top: 0;
       z-index: 10;
       box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    .header-left { display: flex; align-items: center; gap: 14px; }
+    .header-logo {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid rgba(255,255,255,0.3);
+      flex-shrink: 0;
     }
     header h1 { font-size: 20px; font-weight: 700; letter-spacing: 0.4px; }
     header p  { font-size: 12px; opacity: 0.8; margin-top: 2px; }
@@ -151,9 +160,12 @@
 <body>
 
 <header>
-  <div>
-    <h1>AI Daily Signal</h1>
-    <p>Your automated daily digest of AI news and updates</p>
+  <div class="header-left">
+    <img src="logo.jpg" alt="AI Daily Signal Logo" class="header-logo" />
+    <div>
+      <h1>AI Daily Signal</h1>
+      <p>Your automated daily digest of AI news and updates</p>
+    </div>
   </div>
   <div class="header-right">Auto-updated every day at 6:00 PM IST</div>
 </header>
