@@ -56,3 +56,12 @@ Welcome to today's edition of the Daily AI News Briefing. Today’s major themes
 ---
 
 *This newsletter was automatically generated and formatted by your Daily AI News Scheduler.*
+
+---
+
+## 🔥 Trending on Hacker News
+
+- [An OpenAI model has disproved a central conjecture in discrete geometry](https://openai.com/index/model-disproves-discrete-geometry-conjecture/)
+- [Google I/O 2026: Welcome to the agentic Gemini era](https://blog.google/innovation-and-ai/sundar-pichai-io-2026/)
+- [Introducing Managed Agents in the Gemini API](https://blog.google/innovation-and-ai/technology/developers-tools/managed-agents-gemini-api/)
+- [OpenAI and Dell Technologies partner to bring Codex to hybrid environments](https://openai.com/index/dell-codex-enterprise-partnership/)

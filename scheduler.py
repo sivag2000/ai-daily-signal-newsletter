@@ -509,7 +509,7 @@ def save_backup(config, articles, videos, llm_newsletter=None):  # Define a func
     except Exception as e:  # Catch write permission or file access errors.
         print(f"Error saving backup file: {e}")  # Print the error details.
 #
-def save_newsletter_to_repo(llm_newsletter):  # Save newsletter to newsletters/ dir and update index.json for the website.
+def save_newsletter_to_repo(llm_newsletter, hn_articles=None):  # Save newsletter to newsletters/ dir and update index.json for the website.
     script_dir = os.path.dirname(os.path.abspath(__file__))  # Get the directory containing the script.
     newsletters_dir = os.path.join(script_dir, "newsletters")  # Build path to newsletters folder.
     os.makedirs(newsletters_dir, exist_ok=True)  # Create the directory if it does not yet exist.
@@ -517,6 +517,11 @@ def save_newsletter_to_repo(llm_newsletter):  # Save newsletter to newsletters/ 
     today_str = today.strftime("%Y-%m-%d")  # Format as YYYY-MM-DD for filenames and JSON keys.
     today_display = today.strftime("%B %d, %Y")  # Format as human-readable string for titles.
     content = llm_newsletter if llm_newsletter else f"# AI Daily Signal — {today_display}\n\nNo newsletter generated today."  # Use LLM output or fallback.
+    if hn_articles:  # If Hacker News articles were scraped, append a dedicated section.
+        hn_section = "\n\n---\n\n## 🔥 Trending on Hacker News\n\n"  # Section header.
+        for art in hn_articles:  # Loop through each HN article.
+            hn_section += f"- [{art['title']}]({art['link']})\n"  # Append as a markdown link bullet.
+        content += hn_section  # Append the HN section to the newsletter content.
     dated_path = os.path.join(newsletters_dir, f"{today_str}.md")  # Path for the dated newsletter file.
     latest_path = os.path.join(newsletters_dir, "latest.md")  # Path for the always-current latest file.
     with open(dated_path, "w", encoding="utf-8") as f:  # Write the dated newsletter file.
@@ -563,7 +568,7 @@ def job():  # Define the main job wrapper that combines all tasks.
     save_to_google_sheets(config, all_data)  # Append data to the Google sheet.
     send_summary_email(config, all_articles, youtube_videos, llm_newsletter)  # Deliver digest email.
     save_backup(config, all_articles, youtube_videos, llm_newsletter)  # Write updates backup file.
-    save_newsletter_to_repo(llm_newsletter)  # Save newsletter to newsletters/ directory for the website.
+    save_newsletter_to_repo(llm_newsletter, hn_articles)  # Save newsletter to newsletters/ directory for the website.
     print(f"--- Job Completed at {datetime.datetime.now()} ---\n")  # Log successful finish timestamp.
 #
 if __name__ == "__main__":  # Executed if the file is run directly.
