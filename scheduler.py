@@ -240,8 +240,14 @@ def scrape_google_blog(headers):  # Define a function to scrape AI posts from Go
         print(f"Error scraping Google Blog: {e}")  # Print the error description.
     return articles[:10]  # Return the top 10 Google Blog articles.
 #
-def scrape_hacker_news(headers):  # Define a function to scrape top stories from Hacker News.
+def scrape_hacker_news(headers):  # Define a function to scrape AI-related stories from Hacker News.
     url = "https://news.ycombinator.com/"  # Set the target Hacker News home URL.
+    ai_keywords = [  # Keywords used to filter for AI-relevant stories.
+        "ai", "artificial intelligence", "machine learning", "deep learning", "neural",
+        "llm", "gpt", "claude", "gemini", "openai", "anthropic", "deepmind", "mistral",
+        "chatgpt", "chatbot", "transformer", "generative", "diffusion", "nlp",
+        "language model", "reinforcement learning", "computer vision", "ml "
+    ]  # End of keyword list.
     articles = []  # Initialize an empty list to store matching articles.
     try:  # Start a try block to handle network and scraping errors.
         response = requests.get(url, headers=headers, timeout=10)  # Fetch Hacker News HTML content.
@@ -252,13 +258,17 @@ def scrape_hacker_news(headers):  # Define a function to scrape top stories from
                 if link:  # If a link tag is found.
                     title = link.get_text(strip=True)  # Retrieve the article title text.
                     href = link['href']  # Extract the destination URL.
+                    title_lower = title.lower()  # Lowercase for case-insensitive keyword matching.
+                    if not any(kw in title_lower for kw in ai_keywords):  # Skip stories not related to AI.
+                        continue  # Move to the next story.
                     full_url = href if href.startswith('http') else f"https://news.ycombinator.com/{href}"  # Build absolute URL.
                     articles.append({"title": title, "link": full_url, "source": "Hacker News", "author": "Hacker News User"})  # Save details.
         else:  # If the server returned an error.
             print(f"Hacker News responded with status code: {response.status_code}")  # Log the status code.
     except Exception as e:  # Catch any exception.
         print(f"Error scraping Hacker News: {e}")  # Print the error details.
-    return articles[:10]  # Return the top 10 stories found.
+    print(f"Hacker News: found {len(articles[:10])} AI-related stories.")  # Log how many matched.
+    return articles[:10]  # Return up to 10 AI-related stories.
 #
 def fetch_youtube_videos(api_key):  # Define a function to fetch videos using the YouTube Data API.
     videos = []  # Initialize an empty list to store video search results.
