@@ -18,3 +18,6 @@ Thumbs.db
 AI_Updates_*.txt
 AI_Newsletter_*.md
 *.log
+
+# Claude Code / local agent config
+.claude/

@@ -35,6 +35,21 @@ def fetch_summary(url, headers):  # Define a helper function to fetch a 1-senten
         pass  # Do nothing and continue.
     return "No summary available."  # Return fallback string if no summary could be fetched.
 #
+def get_next_issue_number():  # Define a function to determine the next sequential issue number from the newsletter index.
+    script_dir = os.path.dirname(os.path.abspath(__file__))  # Get script directory path.
+    index_path = os.path.join(script_dir, "newsletters", "index.json")  # Path to the edition index file.
+    if not os.path.exists(index_path):  # If index file does not exist yet.
+        return 1  # Start at issue #1.
+    try:  # Attempt to read the existing index.
+        with open(index_path, "r", encoding="utf-8") as f:  # Open the index file.
+            index = json.load(f)  # Parse JSON list of past editions.
+        today_str = datetime.date.today().strftime("%Y-%m-%d")  # Get today's date string.
+        if index and index[0].get("date") == today_str:  # If today's edition already exists (re-run).
+            return index[0].get("issue_number", len(index))  # Return existing issue number for today.
+        return len(index) + 1  # New issue = total past editions + 1.
+    except Exception:  # If any error occurs while reading.
+        return 1  # Default to issue 1 on failure.
+#
 def generate_newsletter_with_llm(config, raw_text):  # Define function to call Gemini API to generate the newsletter.
     api_key = os.environ.get("GEMINI_API_KEY")  # Check if GEMINI_API_KEY is set in environment variables.
     if not api_key:  # If it is not found in the environment variables.
@@ -43,72 +58,76 @@ def generate_newsletter_with_llm(config, raw_text):  # Define function to call G
         print("Warning: Gemini API Key not configured. Using fallback text newsletter formatting.")  # Log warning.
         return None  # Return None to signal fallback.
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"  # Set API endpoint.
-    prompt = """You are an expert newsletter editor specializing in AI and emerging technology communications. Your task is to transform raw source text into a polished, professional newsletter edition focused on AI updates.
+    issue_number = get_next_issue_number()  # Compute the correct sequential issue number.
+    prompt = f"""You are an expert newsletter editor specializing in AI and emerging technology communications. Your task is to transform raw source text into a polished, professional newsletter edition focused on AI updates.
+
+IMPORTANT: Use exactly "Issue #{issue_number:03d}" in the header — do not invent or change this number.
 
 ROLE & GOAL
 Convert any provided text — notes, articles, bullet points, or drafts — into a structured, engaging AI update newsletter suitable for a professional audience including executives, developers, researchers, and business leaders.
 
-NEWSLETTER STRUCTURE (follow exactly)
-1. HEADER
-   • Newsletter name (create if not provided)
-   • Issue number and publication date
-   • One-line tagline that captures the edition's theme
+NEWSLETTER STRUCTURE (follow exactly — modern, scannable editorial format)
+1. HEADER (3 lines, exactly)
+   • Line 1: the edition title as an H1 (# Title) — an evocative 2–5 word theme for today, not the newsletter name
+   • Line 2: **Issue #{issue_number:03d} · today's date in Month Day, Year format** in bold
+   • Line 3: a one-line italic tagline capturing the edition's theme
 
-2. OPENING HOOK (2–3 sentences)
-   • Start with a compelling insight or trend observation
-   • Frame why this edition matters right now
-   • Preview the main topics briefly
+2. ## TL;DR
+   • Exactly 3 bullet points — the day's signal in 3 fast reads
+   • Each bullet ≤ 20 words, leads with the single most important fact
+   • This is the most important section: a busy reader should get the gist from these 3 lines alone
 
-3. MAIN SECTIONS (2–4 sections based on content)
-   • Use clear H2 headings for each topic area
-   • Each section: 3–5 sentences max per paragraph
-   • Lead with the most important point (inverted pyramid)
-   • Include business/practical implications, not just technical facts
-   • Use bullet points only for key specs, lists, or comparisons
-
-4. SPOTLIGHT FEATURE
+3. ## THE BIG STORY
    • Pick the single most impactful update from the source text
-   • Give it a dedicated section with deeper context
-   • Include: What happened → Why it matters → Who is affected
+   • 2–3 tight paragraphs: What happened → Why it matters → Who's affected
+   • Lead with the consequence, not the background
 
-5. KEY TAKEAWAYS (3–5 bullets)
-   • Concise, actionable insights the reader should remember
-   • Start each with a strong verb (Expect, Watch, Consider, Note)
+4. ## MORE SIGNALS
+   • 2–3 other notable items, each as a ### short headline followed by 2–3 sentences
+   • Keep each item tight and self-contained; cut anything not essential
 
-6. WHAT'S NEXT
-   • 2–3 sentences on upcoming trends, releases, or events to watch
+5. ## QUICK HITS
+   • 3–5 single-line bullets for smaller items worth knowing
+   • Format: **Company/Topic** — what happened, in one clause
 
-7. FOOTER
-   • Brief closing sign-off
-   • One clear call-to-action (e.g., "Reply with your thoughts")
-   • Issue subject line recommendation for email
+6. ## WHAT TO WATCH
+   • 2–3 sentences on upcoming trends, releases, or events on the horizon
+
+7. ## THE SIGNAL
+   • One-sentence closing thought that ties the edition together
+   • One clear call-to-action (e.g., "Reply with your take")
+   • Then on its own final line: Subject: [recommended email subject line]
 
 TONE & STYLE RULES
 • Tone: Authoritative yet accessible — like a trusted industry expert, not a press release
 • Voice: Active voice, present tense where possible
 • Clarity: Explain technical terms briefly on first use; assume smart but not deeply technical readers
-• Length: 650–900 words total
+• Length: 550–800 words total — sleek and scannable, not padded
 • No filler phrases: avoid "In conclusion", "It is worth noting", "As we know"
 • No hype language: avoid "revolutionary", "game-changing", "groundbreaking" unless quoting
 • Attribute all claims: use "According to [source]" or "[Company] announced" phrasing
 • Highlight numbers and stats using bold formatting
 • Use em dashes (—) for asides, not parentheses
 
-FORMATTING OUTPUT
+FORMATTING OUTPUT (render-critical — the website styles these exactly)
 • Use markdown-compatible formatting
-• ## for section headings, ### for subsections
+• Title line: a single H1 with "# " — used once, only for the edition title at the very top
+• Section headings: H2 with "## " — keep them SHORT and punchy (these render as small uppercase labels): TL;DR, THE BIG STORY, MORE SIGNALS, QUICK HITS, WHAT TO WATCH, THE SIGNAL
+• Item headlines inside MORE SIGNALS: H3 with "### "
 • **Bold** for key terms, stats, and product names on first mention
-• Bullet points (–) for lists only; no nested bullets
+• Use "- " for every bullet point; no nested bullets
 • One blank line between paragraphs and sections
-• End with a recommended email subject line on a new line: Subject: [your suggestion]
+• End with the email subject line on its own final line: Subject: [your suggestion]
 
 QUALITY CHECKLIST (review before finalizing)
 ✓ Every claim maps to content in the source text — do not invent facts
+✓ The header uses exactly "Issue #{issue_number:03d}" and today's date
+✓ The TL;DR has exactly 3 bullets and stands alone as a summary
+✓ Section labels are short and match the required names exactly
 ✓ Technical details are accurate and contextualized for a business audience
-✓ The opening hook would make someone want to keep reading
-✓ Takeaways are specific, not generic
-✓ Total length is within 650–900 words
-✓ Tone is consistent throughout"""  # Set the user's exact system prompt.
+✓ Quick Hits and Signals are tight — no filler, no repetition
+✓ Total length is within 550–800 words
+✓ Tone is consistent throughout"""  # Set the structured system prompt; issue number injected via f-string.
     today_str = datetime.date.today().strftime("%B %d, %Y")  # Format current date.
     full_prompt = f"{prompt}\n\nUse today's date: {today_str}.\n\nSource Text to summarize:\n{raw_text}"  # Combine system prompt with instructions.
     headers = {"Content-Type": "application/json"}  # Set content header.
@@ -424,13 +443,93 @@ def save_to_google_sheets(config, all_data):  # Define a function to save the pa
     except Exception as e:  # Catch authentication, permissions, or quota errors.
         print(f"Error writing to Google Sheets: {e}")  # Print the detailed error message.
 #
-def send_summary_email(config, articles, videos, llm_newsletter=None):  # Define a function to send the compiled daily digest via Gmail.
+def load_email_subscribers(config):  # Read the list of signed-up email subscribers from the Google Sheet.
+    subscribers = []  # Initialize an empty list of subscriber emails.
+    creds_file = config.get("google_credentials_file", "google_credentials.json")  # Path to the service-account credentials.
+    if not os.path.exists(creds_file):  # If credentials are missing we cannot read the sheet.
+        print("Warning: Google credentials not found. Cannot read email subscribers.")  # Log warning.
+        return subscribers  # Return empty list.
+    try:  # Start a try block for the Sheets read.
+        gc = gspread.service_account(filename=creds_file)  # Authenticate with the Google service account.
+        sh = gc.open(config["google_sheet_name"])  # Open the spreadsheet by name.
+        try:  # Try to access the dedicated subscribers worksheet.
+            ws = sh.worksheet("EmailSubscribers")  # Open the EmailSubscribers tab.
+        except Exception:  # If the tab does not exist yet.
+            print("No 'EmailSubscribers' worksheet found yet. Skipping email subscribers.")  # Log notice.
+            return subscribers  # Return empty list.
+        for row in ws.get_all_values()[1:]:  # Loop through all data rows (skip the header row).
+            for cell in row:  # Scan each cell in the row.
+                value = (cell or "").strip()  # Clean the cell value.
+                if "@" in value and "." in value.split("@")[-1]:  # If the cell looks like an email address.
+                    subscribers.append(value.lower())  # Add the normalized email.
+                    break  # Move to the next row once an email is found.
+        subscribers = sorted(set(subscribers))  # De-duplicate and sort the list.
+        print(f"Loaded {len(subscribers)} email subscriber(s) from Google Sheet.")  # Log the count.
+    except Exception as e:  # Catch authentication, permission, or quota errors.
+        print(f"Error reading email subscribers: {e}")  # Log the error.
+    return subscribers  # Return the subscriber list.
+#
+def update_telegram_subscribers(config):  # Discover Telegram subscribers via getUpdates and persist them to a repo file.
+    bot_token = os.environ.get("TELEGRAM_BOT_TOKEN") or config.get("telegram_bot_token", "")  # Get the bot token.
+    sub_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "subscribers")  # Path to the subscribers folder.
+    os.makedirs(sub_dir, exist_ok=True)  # Create the folder if it does not exist.
+    path = os.path.join(sub_dir, "telegram.json")  # Path to the persisted Telegram subscriber file.
+    existing = {}  # Dictionary of chat_id -> subscriber record.
+    if os.path.exists(path):  # If we already have a saved list.
+        try:  # Attempt to load it.
+            with open(path, encoding="utf-8") as f:  # Open the file.
+                for record in json.load(f):  # Loop through saved records.
+                    if record.get("chat_id"):  # If the record has a chat id.
+                        existing[str(record["chat_id"])] = record  # Index it by chat id.
+        except Exception:  # If the file is unreadable.
+            existing = {}  # Reset to empty.
+    default_chat = os.environ.get("TELEGRAM_CHAT_ID") or config.get("telegram_chat_id", "")  # The owner's own chat id.
+    if default_chat and default_chat not in ("", "YOUR_TELEGRAM_CHAT_ID") and str(default_chat) not in existing:  # If owner not yet listed.
+        existing[str(default_chat)] = {"chat_id": str(default_chat), "name": "Owner", "joined": datetime.date.today().strftime("%Y-%m-%d")}  # Add the owner.
+    if bot_token and bot_token not in ("", "YOUR_TELEGRAM_BOT_TOKEN"):  # If a real bot token is configured.
+        try:  # Attempt to fetch recent bot updates.
+            resp = requests.get(f"https://api.telegram.org/bot{bot_token}/getUpdates", timeout=15)  # Call getUpdates.
+            if resp.status_code == 200:  # If successful.
+                for upd in resp.json().get("result", []):  # Loop through each update.
+                    message = upd.get("message") or upd.get("edited_message") or {}  # Get the message object.
+                    chat = message.get("chat", {})  # Get the chat object.
+                    cid = chat.get("id")  # Read the chat id.
+                    if cid is None:  # Skip updates without a chat id.
+                        continue  # Next update.
+                    cid = str(cid)  # Normalize to string.
+                    if cid not in existing:  # If this is a brand-new subscriber.
+                        name = chat.get("first_name") or chat.get("title") or chat.get("username") or "Subscriber"  # Best-effort display name.
+                        existing[cid] = {"chat_id": cid, "name": name, "joined": datetime.date.today().strftime("%Y-%m-%d")}  # Record them.
+                        print(f"New Telegram subscriber: {name} ({cid})")  # Log the new sign-up.
+            else:  # If getUpdates failed.
+                print(f"Telegram getUpdates returned status {resp.status_code}.")  # Log the status.
+        except Exception as e:  # Catch network errors.
+            print(f"Error fetching Telegram updates: {e}")  # Log the error.
+    subscribers = list(existing.values())  # Collapse the dictionary back into a list.
+    try:  # Attempt to persist the updated list.
+        with open(path, "w", encoding="utf-8") as f:  # Open the file for writing.
+            json.dump(subscribers, f, indent=2, ensure_ascii=False)  # Save as formatted JSON.
+    except Exception as e:  # Catch write errors.
+        print(f"Error saving Telegram subscribers: {e}")  # Log the error.
+    ids = [s["chat_id"] for s in subscribers]  # Extract just the chat ids.
+    print(f"Telegram subscriber list: {len(ids)} total.")  # Log the total count.
+    return ids  # Return the list of chat ids.
+#
+def send_summary_email(config, articles, videos, llm_newsletter=None, recipients=None):  # Send the compiled daily digest via Gmail to all subscribers.
     sender = config["gmail_sender"]  # Retrieve sender's Gmail address from configuration.
     app_password = config["gmail_app_password"]  # Retrieve the Gmail App Password.
-    receiver = config["gmail_receiver"]  # Retrieve the recipient's email address.
+    recipient_list = list(recipients) if recipients else []  # Start with the passed-in subscriber list.
+    owner_receiver = config.get("gmail_receiver", "")  # The owner's own receiving address from config.
+    if owner_receiver and owner_receiver != "recipient_email@gmail.com":  # If a real owner address is set.
+        recipient_list.append(owner_receiver)  # Always include the owner.
+    recipient_list = sorted(set(r for r in recipient_list if r and "@" in r))  # De-duplicate and keep only valid addresses.
     if sender == "your_email@gmail.com" or app_password == "your_gmail_app_password":  # Check if email config is still default.
         print("Warning: Gmail credentials not configured. Skipping email delivery.")  # Print warning message.
         return  # Exit function early.
+    if not recipient_list:  # If there are no valid recipients.
+        print("No email subscribers to send to. Skipping email delivery.")  # Log notice.
+        return  # Exit function early.
+    receiver = sender  # Address the visible 'To' header to the sender; real recipients go via BCC for privacy.
     today_str = datetime.date.today().strftime("%B %d, %Y")  # Format today's date nicely (e.g. May 23, 2026).
     msg = MIMEMultipart('alternative')  # Create a MIMEMultipart container to support HTML email markup.
     subject = f"Daily AI News Summary - {today_str}"  # Set default subject.
@@ -552,9 +651,9 @@ def send_summary_email(config, articles, videos, llm_newsletter=None):  # Define
         msg.attach(MIMEText(html, 'html'))  # Attach the HTML body string to the MIME message structure.
         server = smtplib.SMTP_SSL('smtp.gmail.com', 465)  # Connect to Gmail SMTP server using SSL encryption on port 465.
         server.login(sender, app_password)  # Authenticate with the Gmail server using credentials.
-        server.sendmail(sender, receiver, msg.as_string())  # Send the email to the recipient address.
+        server.sendmail(sender, recipient_list, msg.as_string())  # Send to every subscriber (BCC — addresses not exposed in headers).
         server.quit()  # Disconnect and close the SMTP session cleanly.
-        print(f"Summary email successfully sent to {receiver}!")  # Print success logs.
+        print(f"Summary email successfully sent to {len(recipient_list)} subscriber(s)!")  # Print success logs.
     except Exception as e:  # Capture connection or authentication errors.
         print(f"Error sending email: {e}")  # Print the error details to log.
 #
@@ -605,14 +704,19 @@ def save_backup(config, articles, videos, llm_newsletter=None):  # Define a func
     except Exception as e:  # Catch write permission or file access errors.
         print(f"Error saving backup file: {e}")  # Print the error details.
 #
-def send_telegram(config, llm_newsletter):  # Define a function to send the newsletter to Telegram.
-    bot_token = os.environ.get("TELEGRAM_BOT_TOKEN") or config.get("telegram_bot_token", "")  # Get bot token from env or config.
-    chat_id = os.environ.get("TELEGRAM_CHAT_ID") or config.get("telegram_chat_id", "")  # Get chat ID from env or config.
+def send_telegram(config, llm_newsletter, chat_ids=None):  # Send the newsletter to one or many Telegram subscribers.
+    bot_token = os.environ.get("TELEGRAM_BOT_TOKEN") or config.get("telegram_bot_token", "")  # Get bot token from env var or config fallback.
     if not bot_token or bot_token in ("", "YOUR_TELEGRAM_BOT_TOKEN"):  # Check if token is missing.
         print("Warning: Telegram bot token not configured. Skipping Telegram delivery.")  # Log warning.
         return  # Exit early.
-    if not chat_id or chat_id in ("", "YOUR_TELEGRAM_CHAT_ID"):  # Check if chat ID is missing.
-        print("Warning: Telegram chat ID not configured. Skipping Telegram delivery.")  # Log warning.
+    recipients = list(chat_ids) if chat_ids else []  # Start from the provided subscriber chat ids.
+    if not recipients:  # If no subscriber list was passed, fall back to the single configured chat id.
+        single = os.environ.get("TELEGRAM_CHAT_ID") or config.get("telegram_chat_id", "")  # Get the owner's chat id.
+        if single and single not in ("", "YOUR_TELEGRAM_CHAT_ID"):  # If it is valid.
+            recipients = [str(single)]  # Use it as the only recipient.
+    recipients = [str(c) for c in dict.fromkeys(recipients) if c]  # De-duplicate while preserving order.
+    if not recipients:  # If we still have nobody to send to.
+        print("Warning: No Telegram subscribers configured. Skipping Telegram delivery.")  # Log warning.
         return  # Exit early.
     today_display = datetime.date.today().strftime("%B %d, %Y")  # Format today's date.
     website_url = "https://sivag2000.github.io/ai-daily-signal-newsletter/"  # Newsletter website URL.
@@ -641,15 +745,21 @@ def send_telegram(config, llm_newsletter):  # Define a function to send the news
     else:  # If no LLM content.
         chunks = [f"🤖 <b>AI Daily Signal — {today_display}</b>\n\nNewsletter not available today.\n\n📖 <a href=\"{website_url}\">Visit the website →</a>"]  # Fallback message.
     api_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"  # Set Telegram Bot API endpoint.
-    for i, chunk in enumerate(chunks):  # Loop through each message chunk.
-        try:  # Start error handling.
-            resp = requests.post(api_url, json={"chat_id": chat_id, "text": chunk, "parse_mode": "HTML", "disable_web_page_preview": i < len(chunks) - 1}, timeout=15)  # Send message.
-            if resp.status_code == 200:  # If successful.
-                print(f"Telegram chunk {i+1}/{len(chunks)} sent successfully.")  # Log success.
-            else:  # If failed.
-                print(f"Telegram API error on chunk {i+1}: {resp.status_code} — {resp.json().get('description', resp.text)}")  # Log error.
-        except Exception as e:  # Catch network errors.
-            print(f"Error sending Telegram message: {e}")  # Log error.
+    sent_count = 0  # Track how many subscribers were delivered to successfully.
+    for chat_id in recipients:  # Loop through every subscriber chat id.
+        ok = True  # Track delivery success for this subscriber.
+        for i, chunk in enumerate(chunks):  # Loop through each message chunk.
+            try:  # Start error handling.
+                resp = requests.post(api_url, json={"chat_id": chat_id, "text": chunk, "parse_mode": "HTML", "disable_web_page_preview": i < len(chunks) - 1}, timeout=15)  # Send message.
+                if resp.status_code != 200:  # If this chunk failed.
+                    ok = False  # Mark this subscriber as failed.
+                    print(f"Telegram error for {chat_id} chunk {i+1}: {resp.status_code} — {resp.json().get('description', resp.text)}")  # Log error.
+            except Exception as e:  # Catch network errors.
+                ok = False  # Mark failed.
+                print(f"Error sending Telegram message to {chat_id}: {e}")  # Log error.
+        if ok:  # If all chunks delivered.
+            sent_count += 1  # Count this subscriber as delivered.
+    print(f"Telegram newsletter delivered to {sent_count}/{len(recipients)} subscriber(s).")  # Log the broadcast result.
 #
 def save_newsletter_to_repo(llm_newsletter, hn_articles=None):  # Save newsletter to newsletters/ dir and update index.json for the website.
     script_dir = os.path.dirname(os.path.abspath(__file__))  # Get the directory containing the script.
@@ -678,11 +788,18 @@ def save_newsletter_to_repo(llm_newsletter, hn_articles=None):  # Save newslette
                 index = json.load(f)  # Parse JSON into a list.
         except Exception:  # If parsing fails for any reason.
             index = []  # Reset to empty list.
-    index = [e for e in index if e.get("date") != today_str]  # Remove any existing entry for today.
-    index.insert(0, {"date": today_str, "title": f"AI Daily Signal — {today_display}", "file": f"newsletters/{today_str}.md"})  # Prepend today's entry.
+    existing_today = next((e for e in index if e.get("date") == today_str), None)  # Check if today already has an entry.
+    issue_number = existing_today.get("issue_number") if existing_today else len(index) + 1  # Preserve existing number or assign next sequential one.
+    index = [e for e in index if e.get("date") != today_str]  # Remove any existing entry for today to avoid duplicates.
+    index.insert(0, {  # Prepend today's entry at the top of the index.
+        "date": today_str,  # Store the date key.
+        "issue_number": issue_number,  # Store the real sequential issue number.
+        "title": f"AI Daily Signal — Issue #{issue_number:03d} — {today_display}",  # Full display title with issue number.
+        "file": f"newsletters/{today_str}.md"  # Relative path to the newsletter file.
+    })  # End entry dictionary.
     with open(index_path, "w", encoding="utf-8") as f:  # Write updated index file.
         json.dump(index, f, indent=2)  # Save as formatted JSON.
-    print(f"Newsletter saved to repo: newsletters/{today_str}.md")  # Log success.
+    print(f"Newsletter saved to repo: newsletters/{today_str}.md (Issue #{issue_number:03d})")  # Log success with issue number.
 #
 def job():  # Define the main job wrapper that combines all tasks.
     print(f"\n--- Starting AI News Collection Job at {datetime.datetime.now()} ---")  # Log startup timestamp.
@@ -712,10 +829,12 @@ def job():  # Define the main job wrapper that combines all tasks.
     print("Generating professional newsletter via Gemini API...")  # Log message.
     llm_newsletter = generate_newsletter_with_llm(config, raw_source_text)  # Call Gemini API.
     save_to_google_sheets(config, all_data)  # Append data to the Google sheet.
-    send_summary_email(config, all_articles, youtube_videos, llm_newsletter)  # Deliver digest email.
+    email_subscribers = load_email_subscribers(config)  # Read signed-up email subscribers from the Google Sheet.
+    send_summary_email(config, all_articles, youtube_videos, llm_newsletter, email_subscribers)  # Deliver digest email to all subscribers.
     save_backup(config, all_articles, youtube_videos, llm_newsletter)  # Write updates backup file.
     save_newsletter_to_repo(llm_newsletter, hn_articles)  # Save newsletter to newsletters/ directory for the website.
-    send_telegram(config, llm_newsletter)  # Send the newsletter to Telegram.
+    telegram_subscribers = update_telegram_subscribers(config)  # Discover and persist Telegram subscribers (from /start messages).
+    send_telegram(config, llm_newsletter, telegram_subscribers)  # Broadcast the newsletter to all Telegram subscribers.
     print(f"--- Job Completed at {datetime.datetime.now()} ---\n")  # Log successful finish timestamp.
 #
 if __name__ == "__main__":  # Executed if the file is run directly.
