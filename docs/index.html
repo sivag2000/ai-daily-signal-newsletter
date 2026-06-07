@@ -347,40 +347,11 @@
       margin-bottom: 13px;
       line-height: 1.45;
     }
-    .subscribe input {
-      width: 100%;
-      padding: 9px 11px;
-      border: 1px solid var(--rule);
-      background: #fff;
-      font-family: var(--body);
-      font-size: 13px;
-      color: var(--ink);
-      border-radius: 3px;
-      margin-bottom: 8px;
-    }
-    .subscribe input:focus { outline: none; border-color: var(--accent); }
-    .subscribe button {
-      width: 100%;
-      padding: 10px;
-      border: none;
-      background: var(--ink);
-      color: var(--paper);
-      font-family: var(--display);
-      font-weight: 600;
-      font-size: 12px;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      cursor: pointer;
-      border-radius: 3px;
-      transition: background 0.15s;
-    }
-    .subscribe button:hover { background: var(--accent); }
-    .subscribe button:disabled { opacity: 0.6; cursor: default; }
     .subscribe .tg-btn {
       display: block;
       text-align: center;
-      margin-top: 9px;
-      padding: 10px;
+      margin-top: 4px;
+      padding: 11px;
       border: 1px solid var(--ink);
       background: #fff;
       color: var(--ink);
@@ -394,9 +365,6 @@
       transition: background 0.15s, color 0.15s;
     }
     .subscribe .tg-btn:hover { background: var(--ink); color: var(--paper); }
-    .subscribe .s-msg { font-size: 12px; font-style: italic; margin-top: 10px; min-height: 1em; line-height: 1.4; }
-    .subscribe .s-msg.ok { color: #2d7a33; }
-    .subscribe .s-msg.err { color: var(--accent); }
 
     /* ── Responsive ── */
     @media (max-width: 820px) {
@@ -434,14 +402,8 @@
 
     <div class="subscribe">
       <div class="s-title">Subscribe</div>
-      <p>Get each edition delivered the moment it’s published.</p>
-      <form id="signupForm" onsubmit="return subscribeEmail(event)">
-        <input type="text" id="suName" placeholder="Your name (optional)" autocomplete="name" />
-        <input type="email" id="suEmail" placeholder="you@email.com" required autocomplete="email" />
-        <button type="submit" id="suBtn">Join by Email</button>
-      </form>
+      <p>Get every edition delivered free on Telegram — the moment it’s published.</p>
       <a class="tg-btn" id="tgBtn" href="#" target="_blank" rel="noopener">✈ Join on Telegram</a>
-      <div class="s-msg" id="suMsg" role="status"></div>
     </div>
   </aside>
 
@@ -467,43 +429,8 @@
     ? '/'
     : 'https://raw.githubusercontent.com/sivag2000/ai-daily-signal-newsletter/main/';
 
-  // ─────────────────────────────────────────────────────────────
-  //  SUBSCRIBER SETTINGS — fill these two in after the one-time setup
-  //  1) SIGNUP_ENDPOINT: the Apps Script Web App "/exec" URL (see SETUP_SUBSCRIBERS.md)
-  //  2) TELEGRAM_BOT_URL: your bot's public link, e.g. https://t.me/AiDailySignalBot
-  // ─────────────────────────────────────────────────────────────
-  const SIGNUP_ENDPOINT = 'YOUR_APPS_SCRIPT_WEB_APP_URL';
+  // Your bot's public link — visitors tap this, send /start, and are auto-subscribed.
   const TELEGRAM_BOT_URL = 'https://t.me/Aidaikysignal_bot';
-
-  async function subscribeEmail(e) {
-    e.preventDefault();
-    const email = document.getElementById('suEmail').value.trim();
-    const name = document.getElementById('suName').value.trim();
-    const msg = document.getElementById('suMsg');
-    const btn = document.getElementById('suBtn');
-    if (!email || !email.includes('@')) {
-      msg.className = 's-msg err'; msg.textContent = 'Please enter a valid email.'; return false;
-    }
-    if (SIGNUP_ENDPOINT.startsWith('YOUR_')) {
-      msg.className = 's-msg err'; msg.textContent = 'Email sign-up isn’t connected yet.'; return false;
-    }
-    btn.disabled = true; btn.textContent = 'Joining…';
-    try {
-      // Apps Script Web Apps don't send CORS headers; no-cors posts the data without reading the reply.
-      await fetch(SIGNUP_ENDPOINT, {
-        method: 'POST',
-        mode: 'no-cors',
-        body: new URLSearchParams({ email, name, source: 'website' })
-      });
-      msg.className = 's-msg ok'; msg.textContent = 'You’re in! Your first edition arrives next publish.';
-      document.getElementById('signupForm').reset();
-    } catch {
-      msg.className = 's-msg err'; msg.textContent = 'Something went wrong — please try again later.';
-    } finally {
-      btn.disabled = false; btn.textContent = 'Join by Email';
-    }
-    return false;
-  }
 
   function formatDate(dateStr) {
     const d = new Date(dateStr + 'T12:00:00');
