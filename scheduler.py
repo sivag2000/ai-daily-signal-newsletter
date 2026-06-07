@@ -3,9 +3,6 @@ import sys  # Import the sys module to read command line flags like --now.
 import json  # Import the json module to read configuration parameters from config.json.
 import datetime  # Import the datetime module to fetch and format the current date.
 import time  # Import the time module to pause execution inside the scheduler loop.
-import smtplib  # Import the smtplib module to connect to Gmail's mail server.
-from email.mime.text import MIMEText  # Import MIMEText to construct the text/HTML email.
-from email.mime.multipart import MIMEMultipart  # Import MIMEMultipart to support HTML email formatting.
 import requests  # Import the requests module to download HTML content from websites.
 from bs4 import BeautifulSoup  # Import BeautifulSoup to parse and scrape HTML content.
 import schedule  # Import the schedule module to run the script at specific times.
@@ -156,49 +153,6 @@ QUALITY CHECKLIST (review before finalizing)
             print(f"Error calling Gemini API (attempt {attempt}): {e}")  # Log error message.
             time.sleep(attempt * 10)  # Wait before retrying.
     return None  # Return None after all retries exhausted.
-#
-def convert_markdown_to_html(md_text):  # Define a helper function to convert basic markdown into clean HTML.
-    lines = md_text.split("\n")  # Split input text into lines.
-    html_lines = []  # Initialize an empty list for HTML markup lines.
-    in_list = False  # Track if we are currently inside a list block.
-    for line in lines:  # Loop through each line in the text.
-        line = line.strip()  # Strip leading and trailing whitespace.
-        if not line:  # Check if line is empty.
-            if in_list:  # If we were building a list.
-                html_lines.append("</ul>")  # Close the HTML list container.
-                in_list = False  # Reset list tracking state.
-            continue  # Proceed to the next line.
-        if line.startswith("## "):  # Check for H2 heading pattern.
-            if in_list:  # Close list if open.
-                html_lines.append("</ul>")  # Close the list.
-                in_list = False  # Reset state.
-            title = line[3:].strip()  # Extract title text.
-            html_lines.append(f"<h2 style='color:#1e3c72; border-bottom:2px solid #eef2f7; padding-bottom:8px; margin-top:30px;'>{title}</h2>")  # Append H2 markup.
-        elif line.startswith("### "):  # Check for H3 heading pattern.
-            if in_list:  # Close list if open.
-                html_lines.append("</ul>")  # Close list.
-                in_list = False  # Reset state.
-            title = line[4:].strip()  # Extract title text.
-            html_lines.append(f"<h3 style='color:#2a5298; margin-top:20px;'>{title}</h3>")  # Append H3 markup.
-        elif line.startswith("- ") or line.startswith("– ") or line.startswith("• "):  # Check for bullet point patterns.
-            if not in_list:  # If we are starting a list block.
-                html_lines.append("<ul style='padding-left:20px; line-height:1.6;'>")  # Open the HTML list block.
-                in_list = True  # Set list tracking state to True.
-            content = line[2:].strip()  # Extract bullet text content.
-            while "**" in content:  # Loop while bold markers exist.
-                content = content.replace("**", "<strong>", 1).replace("**", "</strong>", 1)  # Replace pairs with tags.
-            html_lines.append(f"<li style='margin-bottom:8px;'>{content}</li>")  # Append list item markup.
-        else:  # Handle normal paragraph lines.
-            if in_list:  # Close list if open.
-                html_lines.append("</ul>")  # Close list.
-                in_list = False  # Reset state.
-            content = line  # Set content variable to line string.
-            while "**" in content:  # Loop while bold markers exist.
-                content = content.replace("**", "<strong>", 1).replace("**", "</strong>", 1)  # Replace pairs with tags.
-            html_lines.append(f"<p style='line-height:1.6; margin-bottom:15px;'>{content}</p>")  # Append paragraph markup.
-    if in_list:  # If a list block remains unclosed at the end of text.
-        html_lines.append("</ul>")  # Close the final list container.
-    return "".join(html_lines)  # Join the lines and return the full HTML markup string.
 #
 def scrape_techcrunch(headers):  # Define a function to scrape AI news articles from TechCrunch.
     url = "https://techcrunch.com/category/artificial-intelligence/"  # Set the target TechCrunch AI category URL.
@@ -443,32 +397,6 @@ def save_to_google_sheets(config, all_data):  # Define a function to save the pa
     except Exception as e:  # Catch authentication, permissions, or quota errors.
         print(f"Error writing to Google Sheets: {e}")  # Print the detailed error message.
 #
-def load_email_subscribers(config):  # Read the list of signed-up email subscribers from the Google Sheet.
-    subscribers = []  # Initialize an empty list of subscriber emails.
-    creds_file = config.get("google_credentials_file", "google_credentials.json")  # Path to the service-account credentials.
-    if not os.path.exists(creds_file):  # If credentials are missing we cannot read the sheet.
-        print("Warning: Google credentials not found. Cannot read email subscribers.")  # Log warning.
-        return subscribers  # Return empty list.
-    try:  # Start a try block for the Sheets read.
-        gc = gspread.service_account(filename=creds_file)  # Authenticate with the Google service account.
-        sh = gc.open(config["google_sheet_name"])  # Open the spreadsheet by name.
-        try:  # Try to access the dedicated subscribers worksheet.
-            ws = sh.worksheet("EmailSubscribers")  # Open the EmailSubscribers tab.
-        except Exception:  # If the tab does not exist yet.
-            print("No 'EmailSubscribers' worksheet found yet. Skipping email subscribers.")  # Log notice.
-            return subscribers  # Return empty list.
-        for row in ws.get_all_values()[1:]:  # Loop through all data rows (skip the header row).
-            for cell in row:  # Scan each cell in the row.
-                value = (cell or "").strip()  # Clean the cell value.
-                if "@" in value and "." in value.split("@")[-1]:  # If the cell looks like an email address.
-                    subscribers.append(value.lower())  # Add the normalized email.
-                    break  # Move to the next row once an email is found.
-        subscribers = sorted(set(subscribers))  # De-duplicate and sort the list.
-        print(f"Loaded {len(subscribers)} email subscriber(s) from Google Sheet.")  # Log the count.
-    except Exception as e:  # Catch authentication, permission, or quota errors.
-        print(f"Error reading email subscribers: {e}")  # Log the error.
-    return subscribers  # Return the subscriber list.
-#
 def update_telegram_subscribers(config):  # Discover Telegram subscribers via getUpdates and persist them to a repo file.
     bot_token = os.environ.get("TELEGRAM_BOT_TOKEN") or config.get("telegram_bot_token", "")  # Get the bot token.
     sub_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "subscribers")  # Path to the subscribers folder.
@@ -514,148 +442,6 @@ def update_telegram_subscribers(config):  # Discover Telegram subscribers via ge
     ids = [s["chat_id"] for s in subscribers]  # Extract just the chat ids.
     print(f"Telegram subscriber list: {len(ids)} total.")  # Log the total count.
     return ids  # Return the list of chat ids.
-#
-def send_summary_email(config, articles, videos, llm_newsletter=None, recipients=None):  # Send the compiled daily digest via Gmail to all subscribers.
-    sender = config["gmail_sender"]  # Retrieve sender's Gmail address from configuration.
-    app_password = config["gmail_app_password"]  # Retrieve the Gmail App Password.
-    recipient_list = list(recipients) if recipients else []  # Start with the passed-in subscriber list.
-    owner_receiver = config.get("gmail_receiver", "")  # The owner's own receiving address from config.
-    if owner_receiver and owner_receiver != "recipient_email@gmail.com":  # If a real owner address is set.
-        recipient_list.append(owner_receiver)  # Always include the owner.
-    recipient_list = sorted(set(r for r in recipient_list if r and "@" in r))  # De-duplicate and keep only valid addresses.
-    if sender == "your_email@gmail.com" or app_password == "your_gmail_app_password":  # Check if email config is still default.
-        print("Warning: Gmail credentials not configured. Skipping email delivery.")  # Print warning message.
-        return  # Exit function early.
-    if not recipient_list:  # If there are no valid recipients.
-        print("No email subscribers to send to. Skipping email delivery.")  # Log notice.
-        return  # Exit function early.
-    receiver = sender  # Address the visible 'To' header to the sender; real recipients go via BCC for privacy.
-    today_str = datetime.date.today().strftime("%B %d, %Y")  # Format today's date nicely (e.g. May 23, 2026).
-    msg = MIMEMultipart('alternative')  # Create a MIMEMultipart container to support HTML email markup.
-    subject = f"Daily AI News Summary - {today_str}"  # Set default subject.
-    if llm_newsletter:  # If we have an LLM generated newsletter.
-        lines = llm_newsletter.split("\n")  # Split into lines.
-        for line in lines:  # Loop through lines.
-            if line.strip().lower().startswith("subject:"):  # Check if line contains subject suggestion.
-                subject = line.replace("Subject:", "", 1).replace("subject:", "", 1).strip()  # Extract the subject.
-                if subject.startswith("[") and subject.endswith("]"):  # Strip brackets.
-                    subject = subject[1:-1].strip()  # Remove brackets.
-    msg['Subject'] = subject  # Set the email subject line.
-    msg['From'] = sender  # Set the sender email address header.
-    msg['To'] = receiver  # Set the recipient email address header.
-    if llm_newsletter:  # If we have an LLM newsletter content.
-        newsletter_html = convert_markdown_to_html(llm_newsletter)  # Convert Markdown to HTML.
-        html = f"""<html>
-<head>
-<style>
-  body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f7f9fc; color: #333333; padding: 20px; }}
-  .container {{ max-width: 650px; background-color: #ffffff; margin: 0 auto; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05); padding: 30px; }}
-  .footer {{ background-color: #f1f3f5; color: #666666; text-align: center; padding: 15px; font-size: 12px; border-top: 1px solid #e9ecef; margin-top: 30px; }}
-</style>
-</head>
-<body>
-<div class="container">
-  {newsletter_html}
-  <div class="footer">
-    Sent automatically by your Daily AI News Scheduler Script.<br>
-    Running on Python and Gemini API.
-  </div>
-</div>
-</body>
-</html>
-"""  # Complete HTML format template for LLM newsletter.
-    else:  # Else fallback to default HTML layout.
-        html = f"""<html>
-<head>
-<style>
-  body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f7f9fc; color: #333333; padding: 20px; }}
-  .container {{ max-width: 600px; background-color: #ffffff; margin: 0 auto; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }}
-  .header {{ background: linear-gradient(135deg, #1e3c72, #2a5298); color: #ffffff; padding: 30px; text-align: center; }}
-  .header h1 {{ margin: 0; font-size: 24px; font-weight: 600; letter-spacing: 0.5px; }}
-  .header p {{ margin: 10px 0 0 0; opacity: 0.9; font-size: 14px; }}
-  .content {{ padding: 30px; }}
-  .section-title {{ font-size: 18px; color: #1e3c72; border-bottom: 2px solid #eef2f7; padding-bottom: 8px; margin-top: 0; margin-bottom: 15px; font-weight: 600; }}
-  .item {{ margin-bottom: 20px; }}
-  .item-title {{ font-weight: bold; font-size: 15px; margin: 0 0 5px 0; }}
-  .item-title a {{ color: #1a0dab; text-decoration: none; }}
-  .item-title a:hover {{ text-decoration: underline; }}
-  .item-meta {{ font-size: 12px; color: #777777; margin: 0; }}
-  .badge {{ display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; text-transform: uppercase; margin-right: 5px; }}
-  .badge-tc {{ background-color: #e8f5e9; color: #2e7d32; }}
-  .badge-oa {{ background-color: #eceff1; color: #37474f; }}
-  .badge-gb {{ background-color: #e3f2fd; color: #1565c0; }}
-  .badge-hn {{ background-color: #ffebd6; color: #d84b00; }}
-  .badge-yt {{ background-color: #ffebee; color: #c62828; }}
-  .footer {{ background-color: #f1f3f5; color: #666666; text-align: center; padding: 15px; font-size: 12px; border-top: 1px solid #e9ecef; }}
-</style>
-</head>
-<body>
-<div class="container">
-  <div class="header">
-    <h1>Daily AI News Summary</h1>
-    <p>Your curated digest for {today_str}</p>
-  </div>
-  <div class="content">
-    <h2 class="section-title">Latest Articles</h2>
-    """  # Start HTML layout definition.
-        if not articles:  # Check if no articles were found.
-            html += "<p>No new articles collected today.</p>"  # Add empty notification.
-        else:  # If we have articles.
-            for art in articles:  # Loop through all articles.
-                if art["source"] == "TechCrunch":  # If article is from TechCrunch.
-                    badge_class, badge_code = "badge-tc", "TC"  # Set TC styles.
-                elif art["source"] == "OpenAI":  # If article is from OpenAI.
-                    badge_class, badge_code = "badge-oa", "OA"  # Set OA styles.
-                elif art["source"] == "Google Blog":  # If article is from Google Blog.
-                    badge_class, badge_code = "badge-gb", "Google"  # Set Google styles.
-                else:  # Else if article is from Hacker News.
-                    badge_class, badge_code = "badge-hn", "HN"  # Set HN styles.
-                html += f"""
-    <div class="item">
-      <p class="item-title"><a href="{art['link']}">{art['title']}</a></p>
-      <p class="item-meta">
-        <span class="badge {badge_class}">{badge_code}</span>
-        Published by {art['author']}
-      </p>
-      <p style="margin: 5px 0 0 0; font-size: 13px; color: #555555; font-style: italic;">{art.get('summary', 'No summary available.')}</p>
-    </div>
-                """  # Format article card details.
-        html += """
-    <h2 class="section-title" style="margin-top: 30px;">Trending YouTube Videos</h2>
-    """  # Add YouTube header section.
-        if not videos:  # Check if video list is empty.
-            html += "<p>No YouTube videos retrieved today.</p>"  # Add empty notification.
-        else:  # If we have videos.
-            for vid in videos:  # Loop through each video.
-                html += f"""
-    <div class="item">
-      <p class="item-title"><a href="{vid['link']}">{vid['title']}</a></p>
-      <p class="item-meta">
-        <span class="badge badge-yt">YouTube</span>
-        Channel: {vid['author']}
-      </p>
-      <p style="margin: 5px 0 0 0; font-size: 13px; color: #555555; font-style: italic;">{vid.get('summary', 'No summary available.')}</p>
-    </div>
-                """  # Format video card details.
-        html += """
-  </div>
-  <div class="footer">
-    Sent automatically by your Daily AI News Scheduler Script.<br>
-    Running on Python.
-  </div>
-</div>
-</body>
-</html>
-"""  # Complete HTML format template.
-    try:  # Start a try block for sending emails.
-        msg.attach(MIMEText(html, 'html'))  # Attach the HTML body string to the MIME message structure.
-        server = smtplib.SMTP_SSL('smtp.gmail.com', 465)  # Connect to Gmail SMTP server using SSL encryption on port 465.
-        server.login(sender, app_password)  # Authenticate with the Gmail server using credentials.
-        server.sendmail(sender, recipient_list, msg.as_string())  # Send to every subscriber (BCC — addresses not exposed in headers).
-        server.quit()  # Disconnect and close the SMTP session cleanly.
-        print(f"Summary email successfully sent to {len(recipient_list)} subscriber(s)!")  # Print success logs.
-    except Exception as e:  # Capture connection or authentication errors.
-        print(f"Error sending email: {e}")  # Print the error details to log.
 #
 def save_backup(config, articles, videos, llm_newsletter=None):  # Define a function to save a backup summary to Desktop.
     backup_dir = config.get("desktop_backup_dir", "")  # Get the desktop backup directory path from config.
@@ -829,8 +615,6 @@ def job():  # Define the main job wrapper that combines all tasks.
     print("Generating professional newsletter via Gemini API...")  # Log message.
     llm_newsletter = generate_newsletter_with_llm(config, raw_source_text)  # Call Gemini API.
     save_to_google_sheets(config, all_data)  # Append data to the Google sheet.
-    email_subscribers = load_email_subscribers(config)  # Read signed-up email subscribers from the Google Sheet.
-    send_summary_email(config, all_articles, youtube_videos, llm_newsletter, email_subscribers)  # Deliver digest email to all subscribers.
     save_backup(config, all_articles, youtube_videos, llm_newsletter)  # Write updates backup file.
     save_newsletter_to_repo(llm_newsletter, hn_articles)  # Save newsletter to newsletters/ directory for the website.
     telegram_subscribers = update_telegram_subscribers(config)  # Discover and persist Telegram subscribers (from /start messages).

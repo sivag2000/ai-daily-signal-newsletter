@@ -1,6 +1,6 @@
 # Daily AI News Scheduler Setup Guide
 
-Welcome! This project is a Python-based automatic scheduler that runs every day at 6:00 PM to scrape the latest AI-related news articles, search for today's top AI YouTube videos, save them to Google Sheets, email you a summary, and back up a text file to your Windows Desktop.
+Welcome! This project is a Python-based automatic scheduler that runs every day at 6:00 PM to scrape the latest AI-related news articles, search for today's top AI YouTube videos, save them to Google Sheets, generate a newsletter with Gemini, broadcast it to your Telegram subscribers, and back up a text file to your Windows Desktop.
 
 Since you are a beginner, this guide will walk you through every single step required to get this working from scratch!
 
@@ -16,19 +16,17 @@ Since you are a beginner, this guide will walk you through every single step req
 
 ---
 
-## Step 1: Connect Gmail (Enable App Password)
+## Step 1: Connect Telegram (Create a Bot)
 
-Google does not allow automated scripts to log in to your account with your normal password. To allow Python to send emails, you need to create an **App Password**:
+The newsletter is delivered to subscribers over **Telegram**. You need a bot:
 
-1. Go to your **Google Account** settings (https://myaccount.google.com/).
-2. Click on **Security** on the left menu.
-3. Under *How you sign in to Google*, make sure **2-Step Verification** is turned **ON**. (If not, set it up first).
-4. Click on **2-Step Verification**. Scroll down to the bottom of the page and click **App passwords**.
-5. Enter a name for your app (e.g., `AI News Scheduler`).
-6. Click **Create**. Google will show you a **16-character password** (e.g., `abcd efgh ijkl mnop`).
-7. **Copy this password!** You will put this in your `config.json` as `gmail_app_password`.
+1. In Telegram, open **@BotFather** and send `/newbot`.
+2. Follow the prompts to name your bot and choose a username (it must end in `bot`).
+3. BotFather gives you a **bot token** like `123456789:AAG...`. Keep it safe.
+4. Add the token to GitHub Secrets as `TELEGRAM_BOT_TOKEN` (see Step 5). For local runs you can set `telegram_bot_token` in `config.json`.
+5. Send `/start` to your bot so it can message you — your chat id is discovered automatically and saved to `subscribers/telegram.json`.
    > [!NOTE]
-   > Do not include spaces when copying it; copy it as a single string of 16 characters.
+   > Anyone who taps your bot and sends `/start` is auto-subscribed on the next run. See `SETUP_SUBSCRIBERS.md` for details.
 
 ---
 
@@ -121,13 +119,13 @@ pip install -r requirements.txt
 ```
 
 ### 4. Configure details in `config.json`
-Make sure you have edited `config.json` with Notepad or VS Code, pasting your YouTube API key, Gmail details, and ensuring `google_credentials.json` is present in the workspace.
+Make sure you have edited `config.json` with Notepad or VS Code, pasting your YouTube API key and Telegram bot token, and ensuring `google_credentials.json` is present in the workspace.
 
 ### 5. Running and Testing
 You can run the script in two modes:
 
 * **Test Immediately (Run Once Now)**:
-  Run the script with the `--now` flag. This will run the collection immediately, save to Google Sheets, send the email, create the desktop backup, and exit.
+  Run the script with the `--now` flag. This will run the collection immediately, save to Google Sheets, broadcast to your Telegram subscribers, create the desktop backup, and exit.
   ```cmd
   python scheduler.py --now
   ```
@@ -165,5 +163,5 @@ If you do not want to keep your laptop turned on and awake 24/7, you can host th
 
 * **ModuleNotFoundError**: Run `pip install -r requirements.txt` again. Make sure your virtual environment `(venv)` is active.
 * **gspread.exceptions.SpreadsheetNotFound**: Make sure you shared the Google Sheet with the Service Account email (`client_email`) and that the sheet name in `config.json` matches the actual Google Sheet title exactly.
-* **smtplib.SMTPAuthenticationError**: Check that your Gmail App Password is correct, that 2-Step Verification is active, and that you are using a 16-character App Password (not your personal password).
+* **Telegram messages not arriving**: Make sure you sent `/start` to your bot, that `TELEGRAM_BOT_TOKEN` is set correctly, and that no webhook is configured on the bot (the scheduler uses `getUpdates`).
 * **API key not valid / YouTube quota exceeded**: Ensure the YouTube API key in `config.json` is entered correctly and that you have enabled `YouTube Data API v3` in the Google Cloud Console.
