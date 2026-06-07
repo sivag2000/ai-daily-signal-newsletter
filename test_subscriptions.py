@@ -14,7 +14,7 @@ python test_subscriptions.py --telegram
 #   (first send /start to your bot in Telegram, then run the lines above)
 
 # To also send to a specific chat id (e.g. your own) even before /start:
-$env:TELEGRAM_CHAT_ID = "6425734649"
+$env:TELEGRAM_CHAT_ID = "your_chat_id"
 python test_subscriptions.py --telegram
 ------------------------------------------------------------------
 
