@@ -20,7 +20,7 @@ python test_subscriptions.py --telegram
 
 Notes:
 - Broadcasts to everyone who has /start-ed the bot (and TELEGRAM_CHAT_ID if set).
-- Discovered ids are saved to subscribers/telegram.json.
+- Discovered ids are saved privately to the TelegramSubscribers tab in your Google Sheet.
 - The token stays in your terminal session only; nothing is written to disk.
 """
 
