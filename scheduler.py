@@ -397,23 +397,34 @@ def save_to_google_sheets(config, all_data):  # Define a function to save the pa
     except Exception as e:  # Catch authentication, permissions, or quota errors.
         print(f"Error writing to Google Sheets: {e}")  # Print the detailed error message.
 #
-def update_telegram_subscribers(config):  # Discover Telegram subscribers via getUpdates and persist them to a repo file.
+def update_telegram_subscribers(config):  # Discover Telegram subscribers and persist them PRIVATELY in the Google Sheet.
     bot_token = os.environ.get("TELEGRAM_BOT_TOKEN") or config.get("telegram_bot_token", "")  # Get the bot token.
-    sub_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "subscribers")  # Path to the subscribers folder.
-    os.makedirs(sub_dir, exist_ok=True)  # Create the folder if it does not exist.
-    path = os.path.join(sub_dir, "telegram.json")  # Path to the persisted Telegram subscriber file.
     existing = {}  # Dictionary of chat_id -> subscriber record.
-    if os.path.exists(path):  # If we already have a saved list.
-        try:  # Attempt to load it.
-            with open(path, encoding="utf-8") as f:  # Open the file.
-                for record in json.load(f):  # Loop through saved records.
-                    if record.get("chat_id"):  # If the record has a chat id.
-                        existing[str(record["chat_id"])] = record  # Index it by chat id.
-        except Exception:  # If the file is unreadable.
-            existing = {}  # Reset to empty.
+    ws = None  # Worksheet handle used for persistence (None if Sheets unavailable).
+    creds_file = config.get("google_credentials_file", "google_credentials.json")  # Service-account credentials path.
+    if os.path.exists(creds_file):  # Only attempt the private Sheet if credentials are present.
+        try:  # Open the spreadsheet and the subscribers worksheet.
+            gc = gspread.service_account(filename=creds_file)  # Authenticate with the service account.
+            sh = gc.open(config["google_sheet_name"])  # Open the spreadsheet by name.
+            try:  # Try to open the existing subscribers tab.
+                ws = sh.worksheet("TelegramSubscribers")  # Access the TelegramSubscribers tab.
+            except Exception:  # If the tab does not exist yet.
+                ws = sh.add_worksheet(title="TelegramSubscribers", rows=1000, cols=3)  # Create it.
+                ws.append_row(["chat_id", "name", "joined"])  # Add the header row.
+            for row in ws.get_all_values()[1:]:  # Loop through data rows (skip the header).
+                if row and row[0].strip():  # If a chat id is present.
+                    cid = row[0].strip()  # Read the chat id.
+                    existing[cid] = {"chat_id": cid, "name": (row[1] if len(row) > 1 else ""), "joined": (row[2] if len(row) > 2 else "")}  # Record it.
+        except Exception as e:  # Catch auth / open errors.
+            print(f"Warning: could not read Telegram subscribers from Google Sheet: {e}")  # Log warning.
+    else:  # If credentials are missing.
+        print("Warning: Google credentials not found — Telegram subscriber list will not persist this run.")  # Log warning.
     default_chat = os.environ.get("TELEGRAM_CHAT_ID") or config.get("telegram_chat_id", "")  # The owner's own chat id.
+    new_records = []  # Records discovered this run that must be appended to the Sheet.
     if default_chat and default_chat not in ("", "YOUR_TELEGRAM_CHAT_ID") and str(default_chat) not in existing:  # If owner not yet listed.
-        existing[str(default_chat)] = {"chat_id": str(default_chat), "name": "Owner", "joined": datetime.date.today().strftime("%Y-%m-%d")}  # Add the owner.
+        rec = {"chat_id": str(default_chat), "name": "Owner", "joined": datetime.date.today().strftime("%Y-%m-%d")}  # Build the owner record.
+        existing[str(default_chat)] = rec  # Add to the map.
+        new_records.append(rec)  # Mark for append.
     if bot_token and bot_token not in ("", "YOUR_TELEGRAM_BOT_TOKEN"):  # If a real bot token is configured.
         try:  # Attempt to fetch recent bot updates.
             resp = requests.get(f"https://api.telegram.org/bot{bot_token}/getUpdates", timeout=15)  # Call getUpdates.
@@ -427,19 +438,21 @@ def update_telegram_subscribers(config):  # Discover Telegram subscribers via ge
                     cid = str(cid)  # Normalize to string.
                     if cid not in existing:  # If this is a brand-new subscriber.
                         name = chat.get("first_name") or chat.get("title") or chat.get("username") or "Subscriber"  # Best-effort display name.
-                        existing[cid] = {"chat_id": cid, "name": name, "joined": datetime.date.today().strftime("%Y-%m-%d")}  # Record them.
+                        rec = {"chat_id": cid, "name": name, "joined": datetime.date.today().strftime("%Y-%m-%d")}  # Build the record.
+                        existing[cid] = rec  # Add to the map.
+                        new_records.append(rec)  # Mark for append.
                         print(f"New Telegram subscriber: {name} ({cid})")  # Log the new sign-up.
             else:  # If getUpdates failed.
                 print(f"Telegram getUpdates returned status {resp.status_code}.")  # Log the status.
         except Exception as e:  # Catch network errors.
             print(f"Error fetching Telegram updates: {e}")  # Log the error.
-    subscribers = list(existing.values())  # Collapse the dictionary back into a list.
-    try:  # Attempt to persist the updated list.
-        with open(path, "w", encoding="utf-8") as f:  # Open the file for writing.
-            json.dump(subscribers, f, indent=2, ensure_ascii=False)  # Save as formatted JSON.
-    except Exception as e:  # Catch write errors.
-        print(f"Error saving Telegram subscribers: {e}")  # Log the error.
-    ids = [s["chat_id"] for s in subscribers]  # Extract just the chat ids.
+    if ws is not None and new_records:  # If we have a worksheet and new people to save.
+        try:  # Attempt to append the new rows.
+            ws.append_rows([[r["chat_id"], r["name"], r["joined"]] for r in new_records])  # Append all new rows in one call.
+            print(f"Saved {len(new_records)} new subscriber(s) to the private Google Sheet.")  # Log success.
+        except Exception as e:  # Catch write errors.
+            print(f"Error saving Telegram subscribers to Google Sheet: {e}")  # Log error.
+    ids = [s["chat_id"] for s in existing.values()]  # Extract just the chat ids.
     print(f"Telegram subscriber list: {len(ids)} total.")  # Log the total count.
     return ids  # Return the list of chat ids.
 #

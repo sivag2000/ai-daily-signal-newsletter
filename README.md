@@ -24,7 +24,7 @@ The newsletter is delivered to subscribers over **Telegram**. You need a bot:
 2. Follow the prompts to name your bot and choose a username (it must end in `bot`).
 3. BotFather gives you a **bot token** like `123456789:AAG...`. Keep it safe.
 4. Add the token to GitHub Secrets as `TELEGRAM_BOT_TOKEN` (see Step 5). For local runs you can set `telegram_bot_token` in `config.json`.
-5. Send `/start` to your bot so it can message you — your chat id is discovered automatically and saved to `subscribers/telegram.json`.
+5. Send `/start` to your bot so it can message you — your chat id is discovered automatically and saved privately to your Google Sheet (`TelegramSubscribers` tab).
    > [!NOTE]
    > Anyone who taps your bot and sends `/start` is auto-subscribed on the next run. See `SETUP_SUBSCRIBERS.md` for details.
 

@@ -21,3 +21,6 @@ AI_Newsletter_*.md
 
 # Claude Code / local agent config
 .claude/
+
+# Telegram subscriber list now lives privately in Google Sheets, not the repo
+subscribers/
