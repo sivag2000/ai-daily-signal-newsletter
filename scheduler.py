@@ -507,7 +507,7 @@ def send_telegram(config, llm_newsletter, chat_ids=None):  # Send the newsletter
     bot_token = os.environ.get("TELEGRAM_BOT_TOKEN") or config.get("telegram_bot_token", "")  # Get bot token from env var or config fallback.
     if not bot_token or bot_token in ("", "YOUR_TELEGRAM_BOT_TOKEN"):  # Check if token is missing.
         print("Warning: Telegram bot token not configured. Skipping Telegram delivery.")  # Log warning.
-        return  # Exit early.
+        return {"status": "no_token", "sent": 0, "total": 0, "errors": ["TELEGRAM_BOT_TOKEN not configured"]}  # Report skip so the caller can flag it.
     recipients = list(chat_ids) if chat_ids else []  # Start from the provided subscriber chat ids.
     if not recipients:  # If no subscriber list was passed, fall back to the single configured chat id.
         single = os.environ.get("TELEGRAM_CHAT_ID") or config.get("telegram_chat_id", "")  # Get the owner's chat id.
@@ -516,7 +516,7 @@ def send_telegram(config, llm_newsletter, chat_ids=None):  # Send the newsletter
     recipients = [str(c) for c in dict.fromkeys(recipients) if c]  # De-duplicate while preserving order.
     if not recipients:  # If we still have nobody to send to.
         print("Warning: No Telegram subscribers configured. Skipping Telegram delivery.")  # Log warning.
-        return  # Exit early.
+        return {"status": "no_recipients", "sent": 0, "total": 0, "errors": ["no subscribers and TELEGRAM_CHAT_ID not set"]}  # Report skip so the caller can flag it.
     today_display = datetime.date.today().strftime("%B %d, %Y")  # Format today's date.
     website_url = "https://sivag2000.github.io/ai-daily-signal-newsletter/"  # Newsletter website URL.
     def md_to_telegram_html(text):  # Inner helper to convert markdown to Telegram HTML.
@@ -545,20 +545,36 @@ def send_telegram(config, llm_newsletter, chat_ids=None):  # Send the newsletter
         chunks = [f"🤖 <b>AI Daily Signal — {today_display}</b>\n\nNewsletter not available today.\n\n📖 <a href=\"{website_url}\">Visit the website →</a>"]  # Fallback message.
     api_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"  # Set Telegram Bot API endpoint.
     sent_count = 0  # Track how many subscribers were delivered to successfully.
+    errors = []  # Collect human-readable failure reasons so the caller can surface them.
     for chat_id in recipients:  # Loop through every subscriber chat id.
         ok = True  # Track delivery success for this subscriber.
         for i, chunk in enumerate(chunks):  # Loop through each message chunk.
-            try:  # Start error handling.
-                resp = requests.post(api_url, json={"chat_id": chat_id, "text": chunk, "parse_mode": "HTML", "disable_web_page_preview": i < len(chunks) - 1}, timeout=15)  # Send message.
-                if resp.status_code != 200:  # If this chunk failed.
-                    ok = False  # Mark this subscriber as failed.
-                    print(f"Telegram error for {chat_id} chunk {i+1}: {resp.status_code} — {resp.json().get('description', resp.text)}")  # Log error.
-            except Exception as e:  # Catch network errors.
-                ok = False  # Mark failed.
-                print(f"Error sending Telegram message to {chat_id}: {e}")  # Log error.
+            delivered = False  # Whether this chunk got through.
+            last_err = ""  # Most recent failure detail for this chunk.
+            for attempt in range(3):  # Retry up to 3 times to ride out transient (network / 429 / 5xx) errors.
+                try:  # Start error handling.
+                    resp = requests.post(api_url, json={"chat_id": chat_id, "text": chunk, "parse_mode": "HTML", "disable_web_page_preview": i < len(chunks) - 1}, timeout=15)  # Send message.
+                    if resp.status_code == 200:  # If this chunk was accepted.
+                        delivered = True  # Mark success.
+                        break  # Stop retrying this chunk.
+                    last_err = f"{resp.status_code} — {resp.json().get('description', resp.text)}"  # Capture the API error.
+                    if 400 <= resp.status_code < 500 and resp.status_code != 429:  # 4xx (e.g. 403 blocked, chat not found) are permanent.
+                        break  # Do not retry permanent client errors.
+                except Exception as e:  # Catch network errors.
+                    last_err = str(e)  # Capture the exception text.
+                time.sleep(2 * (attempt + 1))  # Back off before the next retry attempt.
+            if not delivered:  # If the chunk never got through after retries.
+                ok = False  # Mark this subscriber as failed.
+                reason = f"chat {chat_id} chunk {i + 1}: {last_err}"  # Build a readable reason.
+                errors.append(reason)  # Record it for the caller.
+                print(f"Telegram error for {reason}")  # Log error.
+                break  # Stop sending remaining chunks to this failed subscriber.
         if ok:  # If all chunks delivered.
             sent_count += 1  # Count this subscriber as delivered.
-    print(f"Telegram newsletter delivered to {sent_count}/{len(recipients)} subscriber(s).")  # Log the broadcast result.
+    total = len(recipients)  # Total intended recipients.
+    status = "ok" if sent_count == total else ("failed" if sent_count == 0 else "partial")  # Classify the delivery outcome.
+    print(f"Telegram newsletter delivered to {sent_count}/{total} subscriber(s).")  # Log the broadcast result.
+    return {"status": status, "sent": sent_count, "total": total, "errors": errors}  # Report outcome to the caller.
 #
 def save_newsletter_to_repo(llm_newsletter, hn_articles=None):  # Save newsletter to newsletters/ dir and update index.json for the website.
     script_dir = os.path.dirname(os.path.abspath(__file__))  # Get the directory containing the script.
@@ -627,12 +643,30 @@ def job():  # Define the main job wrapper that combines all tasks.
             raw_source_text += f"- Title: {vid['title']}\n  Channel: {vid['author']}\n  Url: {vid['link']}\n  Description: {vid['summary']}\n\n"  # Add video details.
     print("Generating professional newsletter via Gemini API...")  # Log message.
     llm_newsletter = generate_newsletter_with_llm(config, raw_source_text)  # Call Gemini API.
+    problems = []  # Collect issues that should mark the run as failed (red) so they are not missed.
+    if not llm_newsletter:  # Gemini returned nothing — the fallback edition will be published instead.
+        problems.append("Gemini newsletter generation failed — published the 'No newsletter generated today' fallback edition.")  # Flag it.
     save_to_google_sheets(config, all_data)  # Append data to the Google sheet.
     save_backup(config, all_articles, youtube_videos, llm_newsletter)  # Write updates backup file.
     save_newsletter_to_repo(llm_newsletter, hn_articles)  # Save newsletter to newsletters/ directory for the website.
     telegram_subscribers = update_telegram_subscribers(config)  # Discover and persist Telegram subscribers (from /start messages).
-    send_telegram(config, llm_newsletter, telegram_subscribers)  # Broadcast the newsletter to all Telegram subscribers.
-    print(f"--- Job Completed at {datetime.datetime.now()} ---\n")  # Log successful finish timestamp.
+    result = send_telegram(config, llm_newsletter, telegram_subscribers) or {}  # Broadcast the newsletter and capture the delivery outcome.
+    status = result.get("status")  # Read the delivery status.
+    if status == "no_token":  # Bot token missing — nobody can be reached.
+        problems.append("Telegram delivery skipped: TELEGRAM_BOT_TOKEN is not configured.")  # Flag it.
+    elif status == "no_recipients":  # No subscribers and no owner chat id.
+        problems.append("Telegram delivery skipped: no subscribers found (Google Sheet empty and TELEGRAM_CHAT_ID not set).")  # Flag it.
+    elif status == "failed":  # Every send attempt failed.
+        problems.append(f"Telegram delivery FAILED for all {result.get('total')} subscriber(s): " + "; ".join(result.get("errors", [])))  # Flag with reasons.
+    elif status == "partial":  # Some subscribers did not receive it.
+        problems.append(f"Telegram delivery incomplete: {result.get('sent')}/{result.get('total')} delivered — " + "; ".join(result.get("errors", [])))  # Flag with reasons.
+    print(f"--- Job Completed at {datetime.datetime.now()} ---\n")  # Log finish timestamp.
+    if problems:  # If anything went wrong, make it loud and fail the run.
+        print("================ RUN DEGRADED — action needed ================")  # Header.
+        for p in problems:  # List every problem found this run.
+            print(f"  [X] {p}")  # Print each problem clearly.
+        print("==============================================================")  # Footer.
+        sys.exit(1)  # Exit non-zero so the GitHub Actions run turns red and emails the owner.
 #
 if __name__ == "__main__":  # Executed if the file is run directly.
     if "--now" in sys.argv:  # Check if user passed the --now command argument.

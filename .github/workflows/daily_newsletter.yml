@@ -54,8 +54,11 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python scheduler.py --now
 
-      # Step 6: Commit and push the generated newsletter files back to the repo
+      # Step 6: Commit and push the generated newsletter files back to the repo.
+      # Runs even if the scheduler step exited non-zero (a "degraded" run) so the
+      # edition still gets published to the website while the run is flagged red.
       - name: Commit and Push Newsletter
+        if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
