@@ -1,0 +1,6 @@
+{
+  "ai": ["https://openai.com/news/", "https://www.anthropic.com/news", "https://deepmind.google/blog/"],
+  "fintech": ["https://www.finextra.com/", "https://www.bankingdive.com/", "https://www.rbi.org.in/", "https://www.npci.org.in/"],
+  "paper": ["https://arxiv.org/list/cs.AI/recent", "https://arxiv.org/list/cs.LG/recent", "https://arxiv.org/list/cs.CL/recent", "https://huggingface.co/papers"],
+  "github": ["https://github.com/trending?since=daily", "https://github.com/trending?since=weekly", "https://api.github.com/repos/{owner}/{repo}"]
+}
